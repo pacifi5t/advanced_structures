@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use std::marker::PhantomData;
 use std::ptr::NonNull;
 
 struct Node<T> {
@@ -12,6 +13,33 @@ pub struct Multilist<T> {
     head: Option<NonNull<Node<T>>>,
     max_level: usize,
     len: usize,
+}
+
+pub struct Iter<'a, T: 'a> {
+    head: Option<NonNull<Node<T>>>,
+    len: usize,
+    marker: PhantomData<&'a Node<T>>,
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.len == 0 {
+            None
+        } else {
+            self.head.map(|node| unsafe {
+                let node = node.as_ref();
+                self.len -= 1;
+                self.head = node.next;
+                &node.elem
+            })
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
 }
 
 impl<T> Node<T> {
@@ -106,6 +134,10 @@ impl<T> Multilist<T> {
         })
     }
 
+    pub fn iter(&self) -> Iter<T> {
+        Iter { head: self.head, len: self.len, marker: PhantomData }
+    }
+
     //TODO: Implement those:
     // fn insert_next (elem, at)
     // fn insert_child (elem, at)
@@ -120,12 +152,8 @@ impl<T> Multilist<T> {
 impl<T> Display for Multilist<T> where T: Display {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "[")?;
-        let mut iter = self.head;
-        while !iter.is_none() {
-            unsafe {
-                write!(f, "{}, ", iter.unwrap().as_ref().elem)?;
-                iter = iter.unwrap().as_ref().next;
-            }
+        for each in self.iter() {
+            write!(f, "{}, ", each)?;
         }
         // \x08 == \b (backspace), but the latter is unsupported
         write!(f, "\x08\x08]")
@@ -134,7 +162,7 @@ impl<T> Display for Multilist<T> where T: Display {
 
 impl<T> Drop for Multilist<T> {
     fn drop(&mut self) {
-        while let Some(mut node) = self.pop_front_node() {
+        while let Some(node) = self.pop_front_node() {
             drop(node);
         }
     }
