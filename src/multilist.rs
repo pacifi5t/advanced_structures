@@ -42,9 +42,57 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 
+pub struct IterMut<'a, T: 'a> {
+    head: Option<NonNull<Node<T>>>,
+    len: usize,
+    marker: PhantomData<&'a mut Node<T>>,
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.len == 0 {
+            None
+        } else {
+            self.head.map(|node| unsafe {
+                let node = &mut *node.as_ptr();
+                self.len -= 1;
+                self.head = node.next;
+                &mut node.elem
+            })
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+pub struct IntoIter<T> {
+    list: Multilist<T>,
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<T> {
+        self.list.pop_front()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.list.len, Some(self.list.len))
+    }
+}
+
 impl<T> Node<T> {
     fn new(elem: T, level: usize) -> Self {
-        Node { next: None, child: None, level, elem }
+        Node {
+            next: None,
+            child: None,
+            level,
+            elem,
+        }
     }
 
     fn into_elem(self: Box<Self>) -> T {
@@ -66,7 +114,11 @@ impl<T> Node<T> {
 
 impl<T> Multilist<T> {
     pub fn new() -> Self {
-        Multilist { head: None, max_level: 0, len: 0 }
+        Multilist {
+            head: None,
+            max_level: 0,
+            len: 0,
+        }
     }
 
     pub fn push_front(&mut self, elem: T) {
@@ -135,7 +187,19 @@ impl<T> Multilist<T> {
     }
 
     pub fn iter(&self) -> Iter<T> {
-        Iter { head: self.head, len: self.len, marker: PhantomData }
+        Iter {
+            head: self.head,
+            len: self.len,
+            marker: PhantomData,
+        }
+    }
+
+    pub fn iter_mut(&self) -> IterMut<T> {
+        IterMut {
+            head: self.head,
+            len: self.len,
+            marker: PhantomData,
+        }
     }
 
     //TODO: Implement those:
@@ -149,7 +213,56 @@ impl<T> Multilist<T> {
     // fn display
 }
 
-impl<T> Display for Multilist<T> where T: Display {
+impl<T> IntoIterator for Multilist<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter { list: self }
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Multilist<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut Multilist<T> {
+    type Item = &'a mut T;
+    type IntoIter = IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
+
+impl<T> FromIterator<T> for Multilist<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut list = Self::new();
+        for each in iter {
+            list.push_back(each);
+        }
+        list
+    }
+}
+
+impl<T> Clone for Multilist<T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        self.iter().cloned().collect()
+    }
+}
+
+impl<T> Display for Multilist<T>
+where
+    T: Display,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "[")?;
         for each in self.iter() {
