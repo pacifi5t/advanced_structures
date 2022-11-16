@@ -11,6 +11,7 @@ struct Node<T> {
 
 pub struct Multilist<T> {
     head: Option<NonNull<Node<T>>>,
+    tail: Option<NonNull<Node<T>>>,
     max_level: usize,
     len: usize,
 }
@@ -117,33 +118,18 @@ impl<T> Multilist<T> {
     pub fn new() -> Self {
         Multilist {
             head: None,
+            tail: None,
             max_level: 0,
             len: 0,
         }
     }
 
     pub fn push_front(&mut self, elem: T) {
-        let mut node = Box::new(Node::new(elem, 0));
-        node.next = self.head;
-
-        self.head = Some(Box::leak(node).into());
-        self.len += 1;
+        self.push_front_node(Box::new(Node::new(elem, 0)));
     }
 
     pub fn push_back(&mut self, elem: T) {
-        let node = Box::new(Node::new(elem, 0));
-        if self.len == 0 {
-            self.head = Some(Box::leak(node).into());
-        } else {
-            unsafe {
-                let mut iter = self.head.unwrap();
-                while !iter.as_ref().next.is_none() {
-                    iter = iter.as_ref().next.unwrap();
-                }
-                iter.as_mut().next = Some(Box::leak(node).into());
-            }
-        }
-        self.len += 1;
+        self.push_back_node(Box::new(Node::new(elem, 0)))
     }
 
     pub fn pop_front(&mut self) -> Option<T> {
@@ -154,23 +140,47 @@ impl<T> Multilist<T> {
         self.pop_back_node().map(|node| node.into_elem())
     }
 
+    fn push_back_node(&mut self, node: Box<Node<T>>) {
+        let node = Some(Box::leak(node).into());
+        match self.tail {
+            None => self.head = node,
+            Some(tail) => unsafe { (*tail.as_ptr()).next = node },
+        }
+
+        self.tail = node;
+        self.len += 1;
+    }
+
+    fn push_front_node(&mut self, mut node: Box<Node<T>>) {
+        node.next = self.head;
+        let node = Some(Box::leak(node).into());
+
+        if self.head.is_none() {
+            self.tail = node
+        }
+
+        self.head = node;
+        self.len += 1;
+    }
+
     fn pop_back_node(&mut self) -> Option<Box<Node<T>>> {
-        let new_last_node = if self.len <= 1 {
-            self.head
-        } else {
-            self.get_node(self.len - 2)
+        let new_tail = match self.len {
+            0 | 1 => self.head,
+            _ => self.get_node(self.len - 2)
         };
 
         unsafe {
-            let pop_node = new_last_node?.as_ref().next.unwrap_or(new_last_node?);
+            let node = Some(Box::from_raw(self.tail?.as_ptr()));
+            self.tail = new_tail;
 
             self.len -= 1;
             if self.len == 0 {
-                self.head = None
+                self.head = None;
+                self.tail = None;
             }
 
-            new_last_node?.as_mut().next = None;
-            Some(Box::from_raw(pop_node.as_ptr()))
+            new_tail?.as_mut().next = None;
+            node
         }
     }
 
@@ -178,6 +188,10 @@ impl<T> Multilist<T> {
         self.head.map(|node| unsafe {
             let node = Box::from_raw(node.as_ptr());
             self.head = node.next;
+
+            if self.head.is_none() {
+                self.tail = None
+            }
 
             self.len -= 1;
             node
