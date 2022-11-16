@@ -99,17 +99,18 @@ impl<T> Node<T> {
         self.elem
     }
 
-    fn add_child(&mut self, elem: T) {
-        let node = Box::new(Node::new(elem, self.level + 1));
-        let child: Option<NonNull<Node<T>>> = Some(Box::leak(node).into());
-        self.child = child;
-    }
-
-    fn add_next(&mut self, elem: T) {
-        let node = Box::new(Node::new(elem, self.level));
-        let next: Option<NonNull<Node<T>>> = Some(Box::leak(node).into());
-        self.next = next;
-    }
+    // TODO: maybe useless, uncomment later
+    // fn add_child(&mut self, elem: T) {
+    //     let node = Box::new(Node::new(elem, self.level + 1));
+    //     let child: Option<NonNull<Node<T>>> = Some(Box::leak(node).into());
+    //     self.child = child;
+    // }
+    //
+    // fn add_next(&mut self, elem: T) {
+    //     let node = Box::new(Node::new(elem, self.level));
+    //     let next: Option<NonNull<Node<T>>> = Some(Box::leak(node).into());
+    //     self.next = next;
+    // }
 }
 
 impl<T> Multilist<T> {
@@ -243,10 +244,16 @@ impl<'a, T> IntoIterator for &'a mut Multilist<T> {
 impl<T> FromIterator<T> for Multilist<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut list = Self::new();
-        for each in iter {
-            list.push_back(each);
-        }
+        list.extend(iter);
         list
+    }
+}
+
+impl<T> Extend<T> for Multilist<T> {
+    fn extend<I: IntoIterator<Item=T>>(&mut self, iter: I) {
+        for each in iter {
+            self.push_back(each);
+        }
     }
 }
 
