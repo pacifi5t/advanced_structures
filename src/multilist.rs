@@ -155,25 +155,22 @@ impl<T> Multilist<T> {
     }
 
     fn pop_back_node(&mut self) -> Option<Box<Node<T>>> {
-        unsafe {
-            let mut ctr: isize = 0;
-            let mut iter = self.head;
-            while ctr < self.len as isize - 2 && !iter?.as_ref().next.is_none() {
-                iter = iter?.as_ref().next;
-                ctr += 1;
-            }
+        let new_last_node = if self.len <= 1 {
+            self.head
+        } else {
+            self.get_node(self.len - 2)
+        };
 
-            let prev = iter?.as_mut();
-            let tail = Box::from_raw(prev.next.unwrap_or(iter?).as_ptr());
-            prev.next = None;
+        unsafe {
+            let pop_node = new_last_node?.as_ref().next.unwrap_or(new_last_node?);
 
             self.len -= 1;
-
             if self.len == 0 {
-                self.head = None;
+                self.head = None
             }
 
-            Some(tail)
+            new_last_node?.as_mut().next = None;
+            Some(Box::from_raw(pop_node.as_ptr()))
         }
     }
 
@@ -185,6 +182,21 @@ impl<T> Multilist<T> {
             self.len -= 1;
             node
         })
+    }
+
+    fn get_node(&self, at: usize) -> Option<NonNull<Node<T>>> {
+        if self.len == 0 || at >= self.len {
+            return None;
+        }
+
+        let mut iter_elem = self.head?;
+        let mut counter = 0;
+        while counter < at {
+            unsafe { iter_elem = iter_elem.as_ref().next? }
+            counter += 1;
+        }
+
+        Some(iter_elem)
     }
 
     pub fn iter(&self) -> Iter<T> {
@@ -250,7 +262,7 @@ impl<T> FromIterator<T> for Multilist<T> {
 }
 
 impl<T> Extend<T> for Multilist<T> {
-    fn extend<I: IntoIterator<Item=T>>(&mut self, iter: I) {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for each in iter {
             self.push_back(each);
         }
