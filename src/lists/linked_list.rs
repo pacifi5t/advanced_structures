@@ -1,15 +1,9 @@
+use crate::lists::Node;
 use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
 use std::ptr::NonNull;
 
-struct Node<T> {
-    next: Option<NonNull<Node<T>>>,
-    child: Option<NonNull<Node<T>>>,
-    level: usize,
-    elem: T,
-}
-
-pub struct Multilist<T> {
+pub struct LinkedList<T> {
     head: Option<NonNull<Node<T>>>,
     tail: Option<NonNull<Node<T>>>,
     max_level: usize,
@@ -71,7 +65,7 @@ impl<'a, T> Iterator for IterMut<'a, T> {
 }
 
 pub struct IntoIter<T> {
-    list: Multilist<T>,
+    list: LinkedList<T>,
 }
 
 impl<T> Iterator for IntoIter<T> {
@@ -99,24 +93,11 @@ impl<T> Node<T> {
     fn into_elem(self: Box<Self>) -> T {
         self.elem
     }
-
-    // TODO: maybe useless, uncomment later
-    // fn add_child(&mut self, elem: T) {
-    //     let node = Box::new(Node::new(elem, self.level + 1));
-    //     let child: Option<NonNull<Node<T>>> = Some(Box::leak(node).into());
-    //     self.child = child;
-    // }
-    //
-    // fn add_next(&mut self, elem: T) {
-    //     let node = Box::new(Node::new(elem, self.level));
-    //     let next: Option<NonNull<Node<T>>> = Some(Box::leak(node).into());
-    //     self.next = next;
-    // }
 }
 
-impl<T> Multilist<T> {
+impl<T> LinkedList<T> {
     pub fn new() -> Self {
-        Multilist {
+        LinkedList {
             head: None,
             tail: None,
             max_level: 0,
@@ -267,19 +248,9 @@ impl<T> Multilist<T> {
             marker: PhantomData,
         }
     }
-
-    //TODO: Implement those:
-    // fn insert_next (elem, at)
-    // fn insert_child (elem, at)
-    // fn pop (elem, at)
-    // fn move (src, dst)
-    // fn remove_levels_from (l)
-    // fn clone
-    // fn clear
-    // fn display
 }
 
-impl<T> IntoIterator for Multilist<T> {
+impl<T> IntoIterator for LinkedList<T> {
     type Item = T;
     type IntoIter = IntoIter<T>;
 
@@ -288,7 +259,7 @@ impl<T> IntoIterator for Multilist<T> {
     }
 }
 
-impl<'a, T> IntoIterator for &'a Multilist<T> {
+impl<'a, T> IntoIterator for &'a LinkedList<T> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
 
@@ -297,7 +268,7 @@ impl<'a, T> IntoIterator for &'a Multilist<T> {
     }
 }
 
-impl<'a, T> IntoIterator for &'a mut Multilist<T> {
+impl<'a, T> IntoIterator for &'a mut LinkedList<T> {
     type Item = &'a mut T;
     type IntoIter = IterMut<'a, T>;
 
@@ -306,7 +277,7 @@ impl<'a, T> IntoIterator for &'a mut Multilist<T> {
     }
 }
 
-impl<T> FromIterator<T> for Multilist<T> {
+impl<T> FromIterator<T> for LinkedList<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut list = Self::new();
         list.extend(iter);
@@ -314,7 +285,7 @@ impl<T> FromIterator<T> for Multilist<T> {
     }
 }
 
-impl<T> Extend<T> for Multilist<T> {
+impl<T> Extend<T> for LinkedList<T> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for each in iter {
             self.push_back(each);
@@ -322,7 +293,7 @@ impl<T> Extend<T> for Multilist<T> {
     }
 }
 
-impl<T> Clone for Multilist<T>
+impl<T> Clone for LinkedList<T>
 where
     T: Clone,
 {
@@ -331,7 +302,7 @@ where
     }
 }
 
-impl<T> Display for Multilist<T>
+impl<T> Display for LinkedList<T>
 where
     T: Display,
 {
@@ -345,7 +316,7 @@ where
     }
 }
 
-impl<T> Drop for Multilist<T> {
+impl<T> Drop for LinkedList<T> {
     fn drop(&mut self) {
         while let Some(node) = self.pop_front_node() {
             drop(node);
