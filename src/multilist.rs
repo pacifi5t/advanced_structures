@@ -166,7 +166,7 @@ impl<T> Multilist<T> {
     fn pop_back_node(&mut self) -> Option<Box<Node<T>>> {
         let new_tail = match self.len {
             0 | 1 => self.head,
-            _ => self.get_node(self.len - 2)
+            _ => self.get_node(self.len - 2),
         };
 
         unsafe {
@@ -211,6 +211,45 @@ impl<T> Multilist<T> {
         }
 
         Some(iter_elem)
+    }
+
+    pub fn insert(&mut self, elem: T, at: usize) {
+        assert!(
+            (0..=self.len).contains(&at),
+            "Index is out of bounds 0..=len"
+        );
+
+        if at == 0 {
+            return self.push_front(elem);
+        } else if at == self.len {
+            return self.push_back(elem);
+        }
+
+        unsafe {
+            let mut node_before = self.get_node(at - 1).unwrap();
+            let mut node = Box::new(Node::new(elem, 0));
+            node.next = node_before.as_ref().next;
+            node_before.as_mut().next = Some(Box::leak(node).into());
+            self.len += 1;
+        }
+    }
+
+    pub fn pop(&mut self, at: usize) -> Option<T> {
+        assert!((0..self.len).contains(&at), "Index is out of bounds");
+
+        if at == 0 {
+            return self.pop_front();
+        } else if at == self.len {
+            return self.pop_back();
+        }
+
+        unsafe {
+            let mut node_before = self.get_node(at - 1)?;
+            let node = Box::from_raw(node_before.as_ref().next?.as_ptr());
+            node_before.as_mut().next = node.next;
+            self.len -= 1;
+            Some(node.into_elem())
+        }
     }
 
     pub fn iter(&self) -> Iter<T> {
