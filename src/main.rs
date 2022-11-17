@@ -1,5 +1,5 @@
-mod multilist;
+mod lists;
 
 fn main() {
-    println!("Hello, world!");
+    // Some tests of the structures...
 }

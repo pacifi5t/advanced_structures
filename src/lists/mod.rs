@@ -3,7 +3,7 @@ pub use multilist::MultiList;
 use std::ptr::NonNull;
 
 mod linked_list;
-mod multilist;
+pub mod multilist;
 
 #[derive(Clone)]
 struct Node<T> {

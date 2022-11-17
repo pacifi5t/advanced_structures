@@ -70,7 +70,7 @@ pub(super) struct NodeIter<'a, T: 'a> {
     marker: PhantomData<&'a Node<T>>,
 }
 
-impl <'a, T> Iterator for NodeIter<'a, T> {
+impl<'a, T> Iterator for NodeIter<'a, T> {
     type Item = &'a Node<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -81,7 +81,7 @@ impl <'a, T> Iterator for NodeIter<'a, T> {
                 self.len -= 1;
                 self.head = node.next;
                 node
-            })
+            }),
         }
     }
 
@@ -119,11 +119,15 @@ impl<T> LinkedList<T> {
     pub fn len(&self) -> usize {
         self.len
     }
-    
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub(super) fn level(&self) -> usize {
         self.level
     }
-    
+
     pub(super) fn set_level(&mut self, l: usize) {
         self.level = l
     }
@@ -178,7 +182,7 @@ impl<T> LinkedList<T> {
             self.tail = new_tail;
 
             self.len -= 1;
-            if self.len == 0 {
+            if self.is_empty() {
                 self.head = None;
                 self.tail = None;
             }
@@ -203,7 +207,7 @@ impl<T> LinkedList<T> {
     }
 
     pub(super) fn get_node(&self, at: usize) -> Option<NonNull<Node<T>>> {
-        if self.len == 0 || at >= self.len {
+        if self.is_empty() || at >= self.len {
             return None;
         }
 
@@ -276,7 +280,7 @@ impl<T> LinkedList<T> {
         NodeIter {
             head: self.head,
             len: self.len,
-            marker: PhantomData
+            marker: PhantomData,
         }
     }
 }
@@ -342,8 +346,11 @@ where
         for each in self.iter() {
             write!(f, "{}, ", each)?;
         }
-        // \x08 == \b (backspace), but the latter is unsupported
-        write!(f, "\x08\x08]")
+
+        if !self.is_empty() {
+            write!(f, "\x08\x08")?
+        }
+        write!(f, "]")
     }
 }
 

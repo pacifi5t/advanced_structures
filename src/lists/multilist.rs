@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::ptr::NonNull;
 
 // 0 - level num, 1 - local node index
-pub struct Index(usize, usize);
+pub struct Index(pub usize, pub usize);
 
 pub struct MultiList<T> {
     head: Box<LinkedList<T>>,
@@ -17,24 +17,32 @@ impl<T> MultiList<T> {
         MultiList {
             head: Box::new(LinkedList::new()),
             len: 0,
-            levels: HashMap::new(),
+            levels: HashMap::from([(0, 0)]),
         }
     }
 
-    pub fn insert_next(at: Index, elem: T) {
-        todo!()
+    pub fn insert(&mut self, at: Index, elem: T) -> Result<(), &str> {
+        match self.get_sublist(&at) {
+            Some((mut list, index)) => unsafe {
+                list.as_mut().insert(elem, index);
+                (*self.levels.get_mut(&at.0).unwrap()) += 1;
+                self.len += 1;
+                Ok(())
+            },
+            None => Err("can't find list at this index"),
+        }
     }
 
     pub fn insert_child(at: Index, elem: T) {
         todo!()
     }
 
-    fn get_node(&mut self, at: Index) -> Option<NonNull<Node<T>>> {
+    fn get_node(&mut self, at: &Index) -> Option<NonNull<Node<T>>> {
         let (list, index) = self.get_sublist(at)?;
         unsafe { list.as_ref().get_node(index) }
     }
 
-    fn get_sublist(&mut self, at: Index) -> Option<(NonNull<LinkedList<T>>, usize)> {
+    fn get_sublist(&mut self, at: &Index) -> Option<(NonNull<LinkedList<T>>, usize)> {
         if !(0..self.levels.len()).contains(&at.0) {
             return None;
         }
@@ -42,7 +50,7 @@ impl<T> MultiList<T> {
         let mut local_index = at.1;
         let mut list_map = self.build_index_map(at.0);
         for list in list_map.get_mut(&at.0).unwrap() {
-            if list.len() < local_index {
+            if list.len() <= local_index {
                 return Some(((*list).into(), local_index));
             } else {
                 local_index -= list.len();
