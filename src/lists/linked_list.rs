@@ -6,7 +6,7 @@ use std::ptr::NonNull;
 pub struct LinkedList<T> {
     head: Option<NonNull<Node<T>>>,
     tail: Option<NonNull<Node<T>>>,
-    max_level: usize,
+    level: usize,
     len: usize,
 }
 
@@ -80,37 +80,34 @@ impl<T> Iterator for IntoIter<T> {
     }
 }
 
-impl<T> Node<T> {
-    fn new(elem: T, level: usize) -> Self {
-        Node {
-            next: None,
-            child: None,
-            level,
-            elem,
-        }
-    }
-
-    fn into_elem(self: Box<Self>) -> T {
-        self.elem
-    }
-}
-
 impl<T> LinkedList<T> {
     pub fn new() -> Self {
         LinkedList {
             head: None,
             tail: None,
-            max_level: 0,
+            level: 0,
             len: 0,
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.len
+    }
+    
+    pub(super) fn level(&self) -> usize {
+        self.level
+    }
+    
+    pub(super) fn set_level(&mut self, l: usize) {
+        self.level = l
+    }
+
     pub fn push_front(&mut self, elem: T) {
-        self.push_front_node(Box::new(Node::new(elem, 0)));
+        self.push_front_node(Box::new(Node::new(elem)));
     }
 
     pub fn push_back(&mut self, elem: T) {
-        self.push_back_node(Box::new(Node::new(elem, 0)))
+        self.push_back_node(Box::new(Node::new(elem)))
     }
 
     pub fn pop_front(&mut self) -> Option<T> {
@@ -208,7 +205,7 @@ impl<T> LinkedList<T> {
 
         unsafe {
             let mut node_before = self.get_node(at - 1).unwrap();
-            let mut node = Box::new(Node::new(elem, 0));
+            let mut node = Box::new(Node::new(elem));
             node.next = node_before.as_ref().next;
             node_before.as_mut().next = Some(Box::leak(node).into());
             self.len += 1;
