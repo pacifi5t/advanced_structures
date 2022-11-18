@@ -1,6 +1,8 @@
+use std::cell::RefCell;
 pub use linked_list::LinkedList;
 pub use multilist::MultiList;
 use std::ptr::NonNull;
+use std::rc::Rc;
 
 mod linked_list;
 pub mod multilist;
@@ -8,7 +10,7 @@ pub mod multilist;
 #[derive(Clone)]
 struct Node<T> {
     next: Option<NonNull<Node<T>>>,
-    child: Option<NonNull<LinkedList<T>>>,
+    child: Option<Rc<RefCell<LinkedList<T>>>>,
     elem: T,
 }
 
