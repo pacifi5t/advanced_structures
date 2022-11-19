@@ -41,6 +41,22 @@ impl<T> MultiList<T> {
         }
     }
 
+    pub fn insert_alt(&mut self, at: Index, elem: T) -> Result<(), &str> {
+        if at.1 == 0 {
+            return Err("wrong local node index, should be at least 1");
+        }
+
+        let stub_index = Index(at.0, at.1 - 1);
+        match self.get_sublist(&stub_index) {
+            None => Err("can't find list at this index"),
+            Some((list, index)) => {
+                (*list).borrow_mut().insert(elem, index + 1);
+                self.len += 1;
+                Ok(())
+            }
+        }
+    }
+
     pub fn attach_child(&mut self, at: Index, elem: T) -> Result<(), &str> {
         match self.get_sublist_node(&at) {
             None => Err("can't find node at this index"),
