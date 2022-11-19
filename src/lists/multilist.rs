@@ -2,6 +2,7 @@ use super::linked_list::LinkedList;
 use super::Node;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt::{Debug, Display, Formatter};
 use std::ptr::NonNull;
 use std::rc::Rc;
 
@@ -20,6 +21,15 @@ impl<T> MultiList<T> {
         MultiList { len: 0, index_map }
     }
 
+    pub fn size(&self) -> usize {
+        self.len
+    }
+
+    pub fn level_size(&self, level: usize) -> Option<usize> {
+        let lists = self.index_map.get(&level)?;
+        Some(lists.iter().map(|ls| ls.borrow().len()).sum())
+    }
+
     pub fn insert(&mut self, at: Index, elem: T) -> Result<(), &str> {
         match self.get_sublist(&at) {
             None => Err("can't find list at this index"),
@@ -31,7 +41,7 @@ impl<T> MultiList<T> {
         }
     }
 
-    pub fn insert_child(&mut self, at: Index, elem: T) -> Result<(), &str> {
+    pub fn attach_child(&mut self, at: Index, elem: T) -> Result<(), &str> {
         match self.get_sublist_node(&at) {
             None => Err("can't find node at this index"),
             Some(mut node) => {
@@ -56,9 +66,10 @@ impl<T> MultiList<T> {
     fn get_sublist(&self, at: &Index) -> Option<(Rc<RefCell<LinkedList<T>>>, usize)> {
         let lists = self.index_map.get(&at.0)?;
         let mut local_index = at.1;
-        for list in lists {
+        for (i, list) in lists.iter().enumerate() {
             let list_len = list.borrow().len();
-            if local_index <= list_len {
+            let list_is_last = i == lists.len() - 1;
+            if local_index < list_len || list_is_last && local_index == list_len {
                 return Some((list.clone(), local_index));
             } else {
                 local_index -= list_len;
@@ -84,5 +95,45 @@ impl<T> MultiList<T> {
         }
 
         self.index_map.insert(level, vec);
+    }
+}
+
+impl<T> Display for MultiList<T>
+where
+    T: Debug + Display,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Lv0 - {}", self.index_map.get(&0).unwrap()[0].borrow())?;
+        for level in 0..(self.index_map.len() - 1) {
+            let mut vec: Vec<(usize, Rc<RefCell<LinkedList<T>>>)> = Vec::new();
+            let pointers = self.index_map.get(&level).unwrap();
+            let mut index_offset = 0;
+
+            for list in pointers.iter().map(|r| (*r).borrow()) {
+                for (i, node) in list.node_iter().enumerate() {
+                    match &node.child {
+                        Some(child) => vec.push((index_offset + i, child.clone())),
+                        None => {}
+                    }
+                }
+                index_offset += list.len();
+            }
+
+            writeln!(f, "Lv{} - {}", level + 1, MultiList::level_to_string(vec))?
+        }
+        Ok(())
+    }
+}
+
+impl<T> MultiList<T>
+where
+    T: Display,
+{
+    fn level_to_string(vec: Vec<(usize, Rc<RefCell<LinkedList<T>>>)>) -> String {
+        let mut string = String::new();
+        for (i, each) in vec.iter().map(|pair| (pair.0, pair.1.borrow())) {
+            string.push_str(format!("{}:{}  ", i, each).as_str())
+        }
+        string.trim().to_string()
     }
 }
