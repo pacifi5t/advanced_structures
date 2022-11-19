@@ -7,7 +7,16 @@ use std::ptr::NonNull;
 use std::rc::Rc;
 
 // 0 - level num, 1 - local node index
-pub struct Index(pub usize, pub usize);
+pub struct Index {
+    level: usize,
+    node: usize,
+}
+
+impl Index {
+    pub fn new(level: usize, node: usize) -> Self {
+        Index { level, node }
+    }
+}
 
 pub struct MultiList<T> {
     len: usize,
@@ -42,11 +51,11 @@ impl<T> MultiList<T> {
     }
 
     pub fn insert_alt(&mut self, at: Index, elem: T) -> Result<(), &str> {
-        if at.1 == 0 {
+        if at.node == 0 {
             return Err("wrong local node index, should be at least 1");
         }
 
-        let stub_index = Index(at.0, at.1 - 1);
+        let stub_index = Index::new(at.level, at.node - 1);
         match self.get_sublist(&stub_index) {
             None => Err("can't find list at this index"),
             Some((list, index)) => {
@@ -66,7 +75,7 @@ impl<T> MultiList<T> {
                 list.push_back(elem);
                 node.child = Some(Rc::from(Box::new(RefCell::new(list))));
 
-                self.update_level_index(at.0 + 1);
+                self.update_level_index(at.level + 1);
                 self.len += 1;
                 Ok(())
             }
@@ -80,8 +89,8 @@ impl<T> MultiList<T> {
     }
 
     fn get_sublist(&self, at: &Index) -> Option<(Rc<RefCell<LinkedList<T>>>, usize)> {
-        let lists = self.index_map.get(&at.0)?;
-        let mut local_index = at.1;
+        let lists = self.index_map.get(&at.level)?;
+        let mut local_index = at.node;
         for (i, list) in lists.iter().enumerate() {
             let list_len = list.borrow().len();
             let list_is_last = i == lists.len() - 1;
