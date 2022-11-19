@@ -6,7 +6,6 @@ use std::ptr::NonNull;
 pub struct LinkedList<T> {
     head: Option<NonNull<Node<T>>>,
     tail: Option<NonNull<Node<T>>>,
-    level: usize,
     len: usize,
 }
 
@@ -111,7 +110,6 @@ impl<T> LinkedList<T> {
         LinkedList {
             head: None,
             tail: None,
-            level: 0,
             len: 0,
         }
     }
@@ -122,14 +120,6 @@ impl<T> LinkedList<T> {
 
     pub fn is_empty(&self) -> bool {
         self.len == 0
-    }
-
-    pub(super) fn level(&self) -> usize {
-        self.level
-    }
-
-    pub(super) fn set_level(&mut self, l: usize) {
-        self.level = l
     }
 
     pub fn push_front(&mut self, elem: T) {
