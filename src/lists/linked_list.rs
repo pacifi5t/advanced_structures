@@ -89,6 +89,32 @@ impl<'a, T> Iterator for NodeIter<'a, T> {
     }
 }
 
+pub(super) struct NodeIterMut<'a, T: 'a> {
+    head: Option<NonNull<Node<T>>>,
+    len: usize,
+    marker: PhantomData<&'a Node<T>>,
+}
+
+impl<'a, T> Iterator for NodeIterMut<'a, T> {
+    type Item = &'a mut Node<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.len {
+            0 => None,
+            _ => self.head.map(|mut node| unsafe {
+                let node = node.as_mut();
+                self.len -= 1;
+                self.head = node.next;
+                node
+            }),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
 pub struct IntoIter<T> {
     list: LinkedList<T>,
 }
@@ -112,6 +138,10 @@ impl<T> LinkedList<T> {
             tail: None,
             len: 0,
         }
+    }
+
+    pub fn clear(&mut self) {
+        *self = Self::new();
     }
 
     pub fn len(&self) -> usize {
@@ -268,6 +298,14 @@ impl<T> LinkedList<T> {
 
     pub(super) fn node_iter(&self) -> NodeIter<T> {
         NodeIter {
+            head: self.head,
+            len: self.len,
+            marker: PhantomData,
+        }
+    }
+
+    pub(super) fn node_iter_mut(&self) -> NodeIterMut<T> {
+        NodeIterMut {
             head: self.head,
             len: self.len,
             marker: PhantomData,

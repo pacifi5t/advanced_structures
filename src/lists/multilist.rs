@@ -1,4 +1,4 @@
-use super::linked_list::LinkedList;
+use super::LinkedList;
 use super::Node;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -27,6 +27,10 @@ impl<T> MultiList<T> {
         let head = Rc::from(RefCell::new(LinkedList::new()));
         let index_map = HashMap::from([(0, vec![head.clone()])]);
         MultiList { len: 0, index_map }
+    }
+
+    pub fn clear(&mut self) {
+        *self = Self::new();
     }
 
     pub fn size(&self) -> usize {
@@ -85,6 +89,24 @@ impl<T> MultiList<T> {
         }
     }
 
+    pub fn detach_child(&mut self, at: Index) -> Result<(), &str> {
+        match self.get_sublist_node(&at) {
+            None => Err("can't find node at this index"),
+            Some(mut node) => {
+                let node = unsafe { node.as_mut() };
+                let child_size = match &node.child {
+                    Some(list) => list.borrow().len(),
+                    None => 0,
+                };
+                node.child = None;
+
+                self.update_level_index(at.level + 1);
+                self.len -= child_size;
+                Ok(())
+            }
+        }
+    }
+
     pub fn pop(&mut self, at: Index) -> Result<T, &str> {
         match self.get_sublist(&at) {
             None => Err("can't find list at this index"),
@@ -96,6 +118,37 @@ impl<T> MultiList<T> {
             }
         }
     }
+
+    pub fn remove_level(&mut self, level: usize) -> Result<(), &str> {
+        if level > self.levels() {
+            return Err("Provided level does not exist");
+        } else if level == 0 {
+            return Ok(self.clear());
+        }
+
+        for list in self.index_map.get(&level).unwrap() {
+            for node in list.borrow_mut().node_iter_mut() {
+                node.child = None;
+            }
+        }
+
+        (level..self.index_map.len()).for_each(|lv| {
+            self.len -= self.level_size(lv).unwrap();
+            self.index_map.remove(&lv);
+        });
+
+        Ok(())
+    }
+
+    // fn calc_size(&self) -> usize {
+    //     let mut sum = 0;
+    //     for (_, level) in &self.index_map {
+    //         for list in level {
+    //             sum += list.borrow().len();
+    //         }
+    //     }
+    //     sum
+    // }
 
     fn get_sublist_node(&self, at: &Index) -> Option<NonNull<Node<T>>> {
         let (list, index) = self.get_sublist(at)?;
