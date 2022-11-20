@@ -82,6 +82,18 @@ impl<T> MultiList<T> {
         }
     }
 
+    pub fn pop(&mut self, at: Index) -> Result<T, &str> {
+        match self.get_sublist(&at) {
+            None => Err("can't find list at this index"),
+            Some((list, index)) => {
+                let elem = (*list).borrow_mut().pop(index).unwrap();
+                self.len -= 1;
+                self.update_level_index(at.level + 1);
+                Ok(elem)
+            }
+        }
+    }
+
     fn get_sublist_node(&self, at: &Index) -> Option<NonNull<Node<T>>> {
         let (list, index) = self.get_sublist(at)?;
         let node = list.borrow().get_node(index);
@@ -119,7 +131,11 @@ impl<T> MultiList<T> {
             vec.append(&mut v);
         }
 
-        self.index_map.insert(level, vec);
+        if vec.is_empty() {
+            self.index_map.remove(&level);
+        } else {
+            self.index_map.insert(level, vec);
+        }
     }
 }
 
@@ -160,5 +176,50 @@ where
             string.push_str(format!("{}:{}  ", i, each).as_str())
         }
         string.trim().to_string()
+    }
+}
+
+impl<T> Clone for MultiList<T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        let mut new_ml = MultiList::<T>::new();
+
+        let mut first_lv = Vec::new();
+        for list in self.index_map.get(&0).unwrap() {
+            let clone = list.borrow().clone();
+            first_lv.push(Rc::from(Box::new(RefCell::new(clone))));
+        }
+        new_ml.index_map.insert(0, first_lv);
+
+        for level in 0..self.index_map.len() - 1 {
+            let vec = self.index_map.get(&level).unwrap();
+            let mut temp: Vec<(usize, Rc<RefCell<LinkedList<T>>>)> = Vec::new();
+
+            let mut index_offset = 0;
+            for list in vec.iter().map(|r| (*r).borrow()) {
+                for (i, node) in list.node_iter().enumerate() {
+                    match &node.child {
+                        Some(child) => {
+                            let clone = child.borrow().clone();
+                            temp.push((index_offset + i, Rc::from(Box::new(RefCell::new(clone)))));
+                        }
+                        None => {}
+                    }
+                }
+                index_offset += list.len();
+            }
+
+            for (node, list) in &temp {
+                let mut parent = new_ml.get_sublist_node(&Index::new(level, *node)).unwrap();
+                unsafe { parent.as_mut().child = Some(list.clone()) }
+            }
+
+            let v = temp.iter().map(|(_, ls)| ls.clone()).collect();
+            new_ml.index_map.insert(level + 1, v);
+        }
+
+        new_ml
     }
 }
