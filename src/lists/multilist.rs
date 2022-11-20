@@ -6,7 +6,6 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ptr::NonNull;
 use std::rc::Rc;
 
-// 0 - level num, 1 - local node index
 pub struct Index {
     level: usize,
     node: usize,
@@ -32,6 +31,10 @@ impl<T> MultiList<T> {
 
     pub fn size(&self) -> usize {
         self.len
+    }
+
+    pub fn levels(&self) -> usize {
+        self.index_map.len()
     }
 
     pub fn level_size(&self, level: usize) -> Option<usize> {
@@ -117,25 +120,35 @@ impl<T> MultiList<T> {
     }
 
     fn update_level_index(&mut self, level: usize) {
-        let mut vec = Vec::new();
-        let lists = self.index_map.get(&(level - 1)).unwrap();
-
-        for list in lists {
-            let mut v = Vec::new();
-            for n in (*list).borrow().node_iter() {
-                match &n.child {
-                    Some(child) => v.push(child.clone()),
-                    None => {}
-                };
-            }
-            vec.append(&mut v);
-        }
+        let vec: Vec<Rc<RefCell<LinkedList<T>>>> = self
+            .get_children_of_level(level - 1)
+            .iter()
+            .map(|(_, c)| c.clone())
+            .collect();
 
         if vec.is_empty() {
             self.index_map.remove(&level);
         } else {
             self.index_map.insert(level, vec);
         }
+    }
+
+    fn get_children_of_level(&self, level: usize) -> Vec<(usize, Rc<RefCell<LinkedList<T>>>)> {
+        let mut vec: Vec<(usize, Rc<RefCell<LinkedList<T>>>)> = Vec::new();
+        let mut index_offset = 0;
+
+        let pointers = self.index_map.get(&level).unwrap();
+        for list in pointers.iter().map(|r| (*r).borrow()) {
+            for (i, node) in list.node_iter().enumerate() {
+                match &node.child {
+                    Some(child) => vec.push((index_offset + i, child.clone())),
+                    None => {}
+                }
+            }
+            index_offset += list.len();
+        }
+
+        vec
     }
 }
 
@@ -145,37 +158,18 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Lv0 - {}", self.index_map.get(&0).unwrap()[0].borrow())?;
-        for level in 0..(self.index_map.len() - 1) {
-            let mut vec: Vec<(usize, Rc<RefCell<LinkedList<T>>>)> = Vec::new();
-            let pointers = self.index_map.get(&level).unwrap();
-            let mut index_offset = 0;
 
-            for list in pointers.iter().map(|r| (*r).borrow()) {
-                for (i, node) in list.node_iter().enumerate() {
-                    match &node.child {
-                        Some(child) => vec.push((index_offset + i, child.clone())),
-                        None => {}
-                    }
-                }
-                index_offset += list.len();
+        for level in 0..(self.index_map.len() - 1) {
+            let vec = self.get_children_of_level(level);
+            let mut string = String::new();
+            for (i, each) in vec.iter().map(|pair| (pair.0, pair.1.borrow())) {
+                string.push_str(format!("{}:{}  ", i, each).as_str())
             }
 
-            writeln!(f, "Lv{} - {}", level + 1, MultiList::level_to_string(vec))?
+            writeln!(f, "Lv{} - {}", level + 1, string.trim().to_string())?
         }
-        Ok(())
-    }
-}
 
-impl<T> MultiList<T>
-where
-    T: Display,
-{
-    fn level_to_string(vec: Vec<(usize, Rc<RefCell<LinkedList<T>>>)>) -> String {
-        let mut string = String::new();
-        for (i, each) in vec.iter().map(|pair| (pair.0, pair.1.borrow())) {
-            string.push_str(format!("{}:{}  ", i, each).as_str())
-        }
-        string.trim().to_string()
+        Ok(())
     }
 }
 
@@ -184,42 +178,31 @@ where
     T: Clone,
 {
     fn clone(&self) -> Self {
-        let mut new_ml = MultiList::<T>::new();
+        let mut new = MultiList::<T>::new();
 
-        let mut first_lv = Vec::new();
+        let mut first_level = Vec::new();
         for list in self.index_map.get(&0).unwrap() {
-            let clone = list.borrow().clone();
-            first_lv.push(Rc::from(Box::new(RefCell::new(clone))));
+            let list_clone = list.borrow().clone();
+            first_level.push(Rc::from(Box::new(RefCell::new(list_clone))));
         }
-        new_ml.index_map.insert(0, first_lv);
+        new.index_map.insert(0, first_level);
 
-        for level in 0..self.index_map.len() - 1 {
-            let vec = self.index_map.get(&level).unwrap();
-            let mut temp: Vec<(usize, Rc<RefCell<LinkedList<T>>>)> = Vec::new();
+        for level in 0..(self.index_map.len() - 1) {
+            let vec: Vec<(usize, Rc<RefCell<LinkedList<T>>>)> = self
+                .get_children_of_level(level)
+                .iter()
+                .map(|(i, child)| (*i, Rc::from(Box::new(RefCell::new(child.borrow().clone())))))
+                .collect();
 
-            let mut index_offset = 0;
-            for list in vec.iter().map(|r| (*r).borrow()) {
-                for (i, node) in list.node_iter().enumerate() {
-                    match &node.child {
-                        Some(child) => {
-                            let clone = child.borrow().clone();
-                            temp.push((index_offset + i, Rc::from(Box::new(RefCell::new(clone)))));
-                        }
-                        None => {}
-                    }
-                }
-                index_offset += list.len();
-            }
-
-            for (node, list) in &temp {
-                let mut parent = new_ml.get_sublist_node(&Index::new(level, *node)).unwrap();
+            for (node, list) in &vec {
+                let mut parent = new.get_sublist_node(&Index::new(level, *node)).unwrap();
                 unsafe { parent.as_mut().child = Some(list.clone()) }
             }
 
-            let v = temp.iter().map(|(_, ls)| ls.clone()).collect();
-            new_ml.index_map.insert(level + 1, v);
+            let v = vec.iter().map(|(_, ls)| ls.clone()).collect();
+            new.index_map.insert(level + 1, v);
         }
 
-        new_ml
+        new
     }
 }
