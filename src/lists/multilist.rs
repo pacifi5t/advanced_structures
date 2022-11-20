@@ -112,8 +112,8 @@ impl<T> MultiList<T> {
             None => Err("can't find list at this index"),
             Some((list, index)) => {
                 let elem = (*list).borrow_mut().pop(index).unwrap();
-                self.len -= 1;
-                self.update_level_index(at.level + 1);
+                self.update_index(at.level);
+                self.recalc_size();
                 Ok(elem)
             }
         }
@@ -132,7 +132,7 @@ impl<T> MultiList<T> {
             }
         }
 
-        (level..self.index_map.len()).for_each(|lv| {
+        (level..self.levels()).for_each(|lv| {
             self.len -= self.level_size(lv).unwrap();
             self.index_map.remove(&lv);
         });
@@ -140,15 +140,27 @@ impl<T> MultiList<T> {
         Ok(())
     }
 
-    // fn calc_size(&self) -> usize {
-    //     let mut sum = 0;
-    //     for (_, level) in &self.index_map {
-    //         for list in level {
-    //             sum += list.borrow().len();
-    //         }
-    //     }
-    //     sum
-    // }
+    pub fn move_elem(&mut self, src: Index, dst: Index) -> Result<(), &str> {
+        let maybe_src_list = self.get_sublist(&src);
+        if maybe_src_list.is_none() {
+            return Err("can't find list at source index");
+        }
+
+        let (list, at) = maybe_src_list.unwrap();
+        let node = list.borrow_mut().pop_node(at).unwrap();
+
+        let maybe_dst_list = self.get_sublist(&dst);
+        if maybe_dst_list.is_none() {
+            return Err("can't find list at source index");
+        }
+
+        let (list, at) = maybe_dst_list.unwrap();
+        list.borrow_mut().insert_node(node, at);
+
+        self.update_index(1);
+        self.recalc_size();
+        Ok(())
+    }
 
     fn get_sublist_node(&self, at: &Index) -> Option<NonNull<Node<T>>> {
         let (list, index) = self.get_sublist(at)?;
@@ -183,6 +195,22 @@ impl<T> MultiList<T> {
             self.index_map.remove(&level);
         } else {
             self.index_map.insert(level, vec);
+        }
+    }
+
+    fn update_index(&mut self, from: usize) {
+        let from = if from == 0 { 1 } else { from };
+        (from..self.levels()).for_each(|level| {
+            self.update_level_index(level);
+        });
+    }
+
+    fn recalc_size(&mut self) {
+        self.len = 0;
+        for (_, level) in &self.index_map {
+            for list in level {
+                self.len += list.borrow().len();
+            }
         }
     }
 

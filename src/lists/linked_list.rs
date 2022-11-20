@@ -242,20 +242,23 @@ impl<T> LinkedList<T> {
     }
 
     pub fn insert(&mut self, elem: T, at: usize) {
+        self.insert_node(Box::new(Node::new(elem)), at)
+    }
+
+    pub(super) fn insert_node(&mut self, mut node: Box<Node<T>>, at: usize) {
         assert!(
             (0..=self.len).contains(&at),
             "Index is out of bounds 0..=len"
         );
 
         if at == 0 {
-            return self.push_front(elem);
+            return self.push_front_node(node);
         } else if at == self.len {
-            return self.push_back(elem);
+            return self.push_back_node(node);
         }
 
         unsafe {
             let mut node_before = self.get_node(at - 1).unwrap();
-            let mut node = Box::new(Node::new(elem));
             node.next = node_before.as_ref().next;
             node_before.as_mut().next = Some(Box::leak(node).into());
             self.len += 1;
@@ -263,12 +266,16 @@ impl<T> LinkedList<T> {
     }
 
     pub fn pop(&mut self, at: usize) -> Option<T> {
+        Some(self.pop_node(at)?.into_elem())
+    }
+
+    pub(super) fn pop_node(&mut self, at: usize) -> Option<Box<Node<T>>> {
         assert!((0..self.len).contains(&at), "Index is out of bounds");
 
         if at == 0 {
-            return self.pop_front();
+            return self.pop_front_node();
         } else if at == self.len {
-            return self.pop_back();
+            return self.pop_back_node();
         }
 
         unsafe {
@@ -276,7 +283,7 @@ impl<T> LinkedList<T> {
             let node = Box::from_raw(node_before.as_ref().next?.as_ptr());
             node_before.as_mut().next = node.next;
             self.len -= 1;
-            Some(node.into_elem())
+            Some(node)
         }
     }
 
