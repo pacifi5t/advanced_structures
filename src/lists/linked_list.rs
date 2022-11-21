@@ -391,8 +391,11 @@ where
 
 impl<T> Drop for LinkedList<T> {
     fn drop(&mut self) {
-        while let Some(node) = self.pop_front_node() {
-            drop(node);
+        while self.len() != 0 {
+            match self.pop_front_node() {
+                Some(node) => drop(node),
+                None => {}
+            }
         }
     }
 }
