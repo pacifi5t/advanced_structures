@@ -152,7 +152,7 @@ impl<T> MultiList<T> {
 
         let maybe_dst_list = self.get_sublist(&dst);
         if maybe_dst_list.is_none() {
-            return Err("can't find list at source index");
+            return Err("can't find list at destination index");
         }
 
         let (list, at) = maybe_dst_list.unwrap();
@@ -186,12 +186,9 @@ impl<T> MultiList<T> {
     }
 
     fn update_level_index(&mut self, level: usize) {
-        let vec: Vec<Rc<RefCell<LinkedList<T>>>> = self
-            .get_children_of_level(level - 1)
-            .iter()
-            .map(|(_, c)| c.clone())
-            .filter(|c| !c.borrow().is_empty())
-            .collect();
+        let children = self.get_children_of_level(level - 1);
+        let vec: Vec<Rc<RefCell<LinkedList<T>>>> =
+            children.iter().map(|(_, c)| c.clone()).collect();
 
         if vec.is_empty() {
             self.index_map.remove(&level);
@@ -225,10 +222,18 @@ impl<T> MultiList<T> {
             return vec;
         }
 
-        for list in pointers.unwrap().iter().map(|r| (*r).borrow()) {
-            for (i, node) in list.node_iter().enumerate() {
+        for list in pointers.unwrap().iter().map(|r| (*r).borrow_mut()) {
+            for (i, node) in list.node_iter_mut().enumerate() {
                 match &node.child {
-                    Some(child) => vec.push((index_offset + i, child.clone())),
+                    Some(child) => {
+                        // This is a hack: we don't need empty lists in our array,
+                        // so we should remove refs to empty children
+                        if child.borrow().is_empty() {
+                            node.child = None;
+                        } else {
+                            vec.push((index_offset + i, child.clone()))
+                        }
+                    }
                     None => {}
                 }
             }
