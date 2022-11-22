@@ -10,7 +10,7 @@ fn main() {
     print_breaks();
 
     let mut copies: Vec<MultiList<Item>> = Vec::new();
-    copies.push(MultiList::new());
+    copies.push(default().unwrap());
 
     loop {
         let mut buf = String::new();
@@ -33,12 +33,9 @@ fn print_help() {
     println!("COMMANDS");
     println!("\t{:<42}Show this message", "help");
     println!(
-        "\t{:<42}Display the multilist, N - number of the copy\n\
-        \t{:<42}(by default shows the last)",
-        "show {N}", ""
+        "\t{:<42}Display the current multilist, or a {{N}} copy",
+        "show {N}"
     );
-    println!("\t{:<42}Print current list info", "info");
-    println!("\t{:<42}Clear current list ", "clear");
     println!(
         "\t{:<42}Insert new [elem] to the multilist at [level, node]",
         "insert [level,node] [elem]"
@@ -68,6 +65,7 @@ fn print_help() {
         "move [src_lv, src_nd] [dst_lv, dst_nd]"
     );
     println!("\t{:<42}Create a copy of multilist", "clone");
+    println!("\t{:<42}Set a copy [N] as current list", "restore [N]");
 }
 
 fn parse_args(buf: String, copies: &mut Vec<MultiList<Item>>) -> Result<(), Box<dyn Error>> {
@@ -78,8 +76,6 @@ fn parse_args(buf: String, copies: &mut Vec<MultiList<Item>>) -> Result<(), Box<
     match args[0] {
         "help" => print_help(),
         "show" => show(copies, args)?,
-        "info" => info(ml),
-        "clear" => ml.clear(),
         "insert" => insert(ml, args, false)?,
         "inserta" => insert(ml, args, true)?,
         "pop" => pop(ml, args)?,
@@ -91,6 +87,7 @@ fn parse_args(buf: String, copies: &mut Vec<MultiList<Item>>) -> Result<(), Box<
             let copy = ml.clone();
             copies.push(copy)
         }
+        "restore" => restore(copies, args)?,
         _ => return Err("unknown command or empty input".into()),
     };
 
@@ -100,7 +97,7 @@ fn parse_args(buf: String, copies: &mut Vec<MultiList<Item>>) -> Result<(), Box<
 fn remove_level(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
     check_args(2, args.len(), None)?;
     ml.remove_level(args[1].parse()?)?;
-    Ok(())
+    Ok(info(ml))
 }
 
 fn move_elem(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
@@ -108,7 +105,7 @@ fn move_elem(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Er
     let src = parse_index(&args, 1)?;
     let dst = parse_index(&args, 2)?;
     ml.move_elem(src, dst)?;
-    Ok(())
+    Ok(info(ml))
 }
 
 fn attach_child(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
@@ -117,14 +114,14 @@ fn attach_child(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn
     let at = parse_index(&args, 1)?;
     ml.attach_child(at, args[2].parse()?)?;
 
-    Ok(print(ml))
+    Ok(info(ml))
 }
 
 fn detach_child(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
     check_args(2, args.len(), None)?;
     let at = parse_index(&args, 1)?;
     ml.detach_child(at)?;
-    Ok(())
+    Ok(info(ml))
 }
 
 fn insert(ml: &mut MultiList<Item>, args: Vec<&str>, alt: bool) -> Result<(), Box<dyn Error>> {
@@ -136,24 +133,20 @@ fn insert(ml: &mut MultiList<Item>, args: Vec<&str>, alt: bool) -> Result<(), Bo
         ml.insert(parse_index(&args, 1)?, args[2].parse()?)?;
     }
 
-    Ok(print(ml))
+    Ok(info(ml))
 }
 
 fn pop(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
     check_args(2, args.len(), None)?;
     let at = parse_index(&args, 1)?;
     ml.pop(at)?;
-    Ok(())
+    Ok(info(ml))
 }
 
 fn parse_index(args: &Vec<&str>, i: usize) -> Result<Index, Box<dyn Error>> {
     let index_str: Vec<&str> = args[i].split(',').collect();
     check_args(2, index_str.len(), Some("expected 2 args for index"))?;
     Ok(Index::new(index_str[0].parse()?, index_str[1].parse()?))
-}
-
-fn print(ml: &MultiList<Item>) {
-    print!("{}", ml)
 }
 
 fn check_args(expected: usize, actual: usize, msg: Option<&str>) -> Result<(), &str> {
@@ -164,23 +157,67 @@ fn check_args(expected: usize, actual: usize, msg: Option<&str>) -> Result<(), &
     }
 }
 
-fn info(ml: &mut MultiList<Item>) {
-    print(ml);
+fn info(ml: &MultiList<Item>) {
+    print!("{}", ml);
     println!("Size: {}  Levels: {}", ml.size(), ml.levels());
 }
 
 fn show(copies: &mut Vec<MultiList<Item>>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
     match args.len() {
-        1 => print(copies.last().unwrap()),
+        1 => Ok(info(copies.last().unwrap())),
         2 => match (copies.len() - 1).checked_sub(args[1].parse::<usize>()?) {
-            None => return Err("incorrect parameter".into()),
+            None => Err("incorrect parameter".into()),
             Some(index) => {
                 if let Some(ml) = copies.get(index) {
-                    print(ml);
+                    Ok(info(ml))
+                } else {
+                    Err("copy not found".into())
                 }
             }
         },
-        _ => check_args(2, args.len(), None)?,
-    };
-    Ok(())
+        _ => Err("incorrect arguments count, check help".into()),
+    }
+}
+
+fn restore(copies: &mut Vec<MultiList<Item>>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
+    check_args(2, args.len(), None)?;
+
+    match (copies.len() - 1).checked_sub(args[1].parse::<usize>()?) {
+        None => Err("incorrect parameter".into()),
+        Some(index) => {
+            if let Some(ml) = copies.get(index) {
+                Ok(copies.push(ml.clone()))
+            } else {
+                Err("copy not found".into())
+            }
+        }
+    }
+}
+
+fn default() -> Result<MultiList<Item>, Box<dyn Error>> {
+    let mut multilist = MultiList::<Item>::new();
+
+    multilist.insert(Index::new(0, 0), 10)?;
+    multilist.insert(Index::new(0, 1), 20)?;
+
+    multilist.attach_child(Index::new(0, 1), 30)?;
+    multilist.insert(Index::new(1, 1), 40)?;
+    multilist.attach_child(Index::new(0, 0), 50)?;
+
+    multilist.attach_child(Index::new(1, 1), 60)?;
+    multilist.insert(Index::new(2, 1), 70)?;
+    multilist.insert(Index::new(2, 1), 80)?;
+
+    multilist.insert(Index::new(2, 1), 211)?;
+
+    multilist.insert(Index::new(2, 0), 1000)?;
+    multilist.insert(Index::new(2, 2), 1235)?;
+
+    multilist.insert_alt(Index::new(1, 1), 456)?;
+    multilist.insert_alt(Index::new(2, 1), 456)?;
+
+    multilist.attach_child(Index::new(2, 2), 893)?;
+    multilist.attach_child(Index::new(3, 0), 23)?;
+
+    Ok(multilist)
 }
