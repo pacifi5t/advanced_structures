@@ -78,9 +78,14 @@ impl<T> MultiList<T> {
             None => Err("can't find node at this index"),
             Some(mut node) => {
                 let node = unsafe { node.as_mut() };
-                let mut list = LinkedList::new();
-                list.push_back(elem);
-                node.child = Some(Rc::from(Box::new(RefCell::new(list))));
+
+                if let Some(_) = &node.child {
+                    return Err("child already exists");
+                } else {
+                    let mut list = LinkedList::new();
+                    list.push_back(elem);
+                    node.child = Some(Rc::from(Box::new(RefCell::new(list))))
+                }
 
                 self.update_level_index(at.level + 1);
                 self.len += 1;
@@ -185,6 +190,7 @@ impl<T> MultiList<T> {
             .get_children_of_level(level - 1)
             .iter()
             .map(|(_, c)| c.clone())
+            .filter(|c| !c.borrow().is_empty())
             .collect();
 
         if vec.is_empty() {
@@ -260,6 +266,7 @@ where
 {
     fn clone(&self) -> Self {
         let mut new = MultiList::<T>::new();
+        new.len = self.len;
 
         let mut first_level = Vec::new();
         for list in self.index_map.get(&0).unwrap() {
