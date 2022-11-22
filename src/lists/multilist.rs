@@ -66,6 +66,10 @@ impl<T> MultiList<T> {
         match self.get_sublist(&stub_index) {
             None => Err("can't find list at this index"),
             Some((list, index)) => {
+                if index >= list.borrow().len(){
+                    return Err("index out of bounds");
+                }
+
                 (*list).borrow_mut().insert(elem, index + 1);
                 self.len += 1;
                 Ok(())
@@ -112,6 +116,10 @@ impl<T> MultiList<T> {
         match self.get_sublist(&at) {
             None => Err("can't find list at this index"),
             Some((list, index)) => {
+                if index >= list.borrow().len(){
+                    return Err("index out of bounds");
+                }
+
                 let elem = (*list).borrow_mut().pop(index).unwrap();
                 self.update_index(at.level);
                 self.recalc_size();
