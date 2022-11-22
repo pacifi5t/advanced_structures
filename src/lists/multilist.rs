@@ -94,14 +94,10 @@ impl<T> MultiList<T> {
             None => Err("can't find node at this index"),
             Some(mut node) => {
                 let node = unsafe { node.as_mut() };
-                let child_size = match &node.child {
-                    Some(list) => list.borrow().len(),
-                    None => 0,
-                };
                 node.child = None;
 
-                self.update_level_index(at.level + 1);
-                self.len -= child_size;
+                self.update_index(at.level + 1);
+                self.recalc_size();
                 Ok(())
             }
         }
@@ -120,8 +116,8 @@ impl<T> MultiList<T> {
     }
 
     pub fn remove_level(&mut self, level: usize) -> Result<(), &str> {
-        if level > self.levels() {
-            return Err("Provided level does not exist");
+        if level >= self.levels() {
+            return Err("provided level does not exist");
         } else if level == 0 {
             return Ok(self.clear());
         }
@@ -218,8 +214,12 @@ impl<T> MultiList<T> {
         let mut vec: Vec<(usize, Rc<RefCell<LinkedList<T>>>)> = Vec::new();
         let mut index_offset = 0;
 
-        let pointers = self.index_map.get(&level).unwrap();
-        for list in pointers.iter().map(|r| (*r).borrow()) {
+        let pointers = self.index_map.get(&level);
+        if pointers.is_none() {
+            return vec;
+        }
+
+        for list in pointers.unwrap().iter().map(|r| (*r).borrow()) {
             for (i, node) in list.node_iter().enumerate() {
                 match &node.child {
                     Some(child) => vec.push((index_offset + i, child.clone())),
