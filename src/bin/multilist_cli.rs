@@ -7,7 +7,7 @@ type Item = i32;
 
 fn main() {
     print_help();
-    println!("{:->100}", "");
+    print_breaks();
 
     let mut copies: Vec<MultiList<Item>> = Vec::new();
     copies.push(MultiList::new());
@@ -21,29 +21,59 @@ fn main() {
             Err(err) => println!("Error: {}", err),
             _ => {}
         };
-        println!("{:->100}", "");
+        print_breaks();
     }
+}
+
+fn print_breaks() {
+    println!("{:->100}", "");
 }
 
 fn print_help() {
     println!("COMMANDS");
-    println!("\t{:<40}Show this message", "help");
+    println!("\t{:<42}Show this message", "help");
     println!(
-        "\t{:<40}Display the multilist, N - number of the copy\n\
-        \t{:<40}(by default shows the last)",
-        "show [N]", ""
+        "\t{:<42}Display the multilist, N - number of the copy\n\
+        \t{:<42}(by default shows the last)",
+        "show {N}", ""
     );
+    println!("\t{:<42}Print current list info", "info");
+    println!("\t{:<42}Clear current list ", "clear");
     println!(
-        "\t{:<40}Insert new [elem] to the multilist at [level, node]",
+        "\t{:<42}Insert new [elem] to the multilist at [level, node]",
         "insert [level,node] [elem]"
     );
-    //TODO: finish this
+    println!(
+        "\t{:<42}The same as 'insert', but for specific cases",
+        "inserta [level,node] [elem]"
+    );
+    println!(
+        "\t{:<42}Delete elem from multilist (and all it's children)",
+        "pop [level,node]"
+    );
+    println!(
+        "\t{:<42}Add new list with [elem] as child for [level, node]",
+        "attach [level,node] [elem]"
+    );
+    println!(
+        "\t{:<42}Delete child at [level, node]",
+        "detach [level,node]"
+    );
+    println!(
+        "\t{:<42}Delete all levels starting from [level]",
+        "purge [level]"
+    );
+    println!(
+        "\t{:<42}Move elem from [src] to [dst]",
+        "move [src_lv, src_nd] [dst_lv, dst_nd]"
+    );
+    println!("\t{:<42}Create a copy of multilist", "clone");
 }
 
 fn parse_args(buf: String, copies: &mut Vec<MultiList<Item>>) -> Result<(), Box<dyn Error>> {
     let args: Vec<&str> = buf.split(' ').collect();
-    let i = copies.len() - 1;
-    let ml = copies.get_mut(i).unwrap();
+    let cur_ml_index = copies.len() - 1;
+    let ml = copies.get_mut(cur_ml_index).unwrap();
 
     match args[0] {
         "help" => print_help(),
@@ -51,17 +81,17 @@ fn parse_args(buf: String, copies: &mut Vec<MultiList<Item>>) -> Result<(), Box<
         "info" => info(ml),
         "clear" => ml.clear(),
         "insert" => insert(ml, args, false)?,
-        "insert-alt" => insert(ml, args, true)?,
+        "inserta" => insert(ml, args, true)?,
         "pop" => pop(ml, args)?,
-        "attach-child" => attach_child(ml, args)?,
-        "detach-child" => detach_child(ml, args)?,
-        "remove-level" => remove_level(ml, args)?,
+        "attach" => attach_child(ml, args)?,
+        "detach" => detach_child(ml, args)?,
+        "purge" => remove_level(ml, args)?,
         "move" => move_elem(ml, args)?,
         "clone" => {
             let copy = ml.clone();
             copies.push(copy)
         }
-        _ => {}
+        _ => return Err("unknown command or empty input".into()),
     };
 
     Ok(())
@@ -74,7 +104,7 @@ fn remove_level(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn
 }
 
 fn move_elem(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
-    check_args(4, args.len(), None)?;
+    check_args(3, args.len(), None)?;
     let src = parse_index(&args, 1)?;
     let dst = parse_index(&args, 2)?;
     ml.move_elem(src, dst)?;
