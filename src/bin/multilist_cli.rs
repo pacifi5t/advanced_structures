@@ -19,7 +19,9 @@ fn main() {
 
         match parse_args(String::from(buf.trim()), &mut copies) {
             Err(err) => println!("Error: {}", err),
-            _ => {}
+            Ok(exit_flag) => if exit_flag {
+                break;
+            }
         };
         print_breaks();
     }
@@ -66,9 +68,10 @@ fn print_help() {
     );
     println!("\t{:<42}Create a copy of multilist", "clone");
     println!("\t{:<42}Set a copy [N] as current list", "restore [N]");
+    println!("\t{:<42}Exit the program", "exit");
 }
 
-fn parse_args(buf: String, copies: &mut Vec<MultiList<Item>>) -> Result<(), Box<dyn Error>> {
+fn parse_args(buf: String, copies: &mut Vec<MultiList<Item>>) -> Result<bool, Box<dyn Error>> {
     let args: Vec<&str> = buf.split(' ').collect();
     let cur_ml_index = copies.len() - 1;
     let ml = copies.get_mut(cur_ml_index).unwrap();
@@ -88,10 +91,11 @@ fn parse_args(buf: String, copies: &mut Vec<MultiList<Item>>) -> Result<(), Box<
             copies.push(copy)
         }
         "restore" => restore(copies, args)?,
+        "exit" => return Ok(true),
         _ => return Err("unknown command or empty input".into()),
     };
 
-    Ok(())
+    Ok(false)
 }
 
 fn remove_level(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
