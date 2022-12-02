@@ -1,5 +1,5 @@
-use advanced_structures_algorithms::lists::multilist::Index;
-use advanced_structures_algorithms::lists::MultiList;
+use advanced_structures::lists::multilist::Index;
+use advanced_structures::lists::MultiList;
 use std::error::Error;
 use std::io::stdin;
 
