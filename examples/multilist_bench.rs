@@ -1,5 +1,8 @@
 use std::error::Error;
+use std::fs::File;
+use std::io::Write;
 use std::time::{Duration, Instant};
+use clap::Parser;
 use rand::Rng;
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoshiro256Plus;
@@ -7,6 +10,13 @@ use advanced_structures::lists::MultiList;
 use advanced_structures::lists::multilist::Index;
 
 type Item = i32;
+
+#[derive(Parser, Debug)]
+struct Args {
+    runs: usize,
+    size: usize,
+    output: String,
+}
 
 fn generate_multilist(size: usize) -> MultiList<Item> {
     let mut rng = Xoshiro256Plus::seed_from_u64(42);
@@ -33,16 +43,24 @@ fn generate_multilist(size: usize) -> MultiList<Item> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let measures = bench(1000);
+    let args = Args::parse() as Args;
 
-    analyze_measures(&measures);
+    let measures = bench(args.size, args.runs);
+    print_stats(&measures);
+
+    let mut file = File::create(args.output)?;
+    for each in measures {
+        let m = each.as_nanos() as f64 / 1000.0;
+        file.write(format!("{}\n", m).as_bytes())?;
+    }
+
     Ok(())
 }
 
-fn bench(size: usize) -> Vec<Duration> {
+fn bench(size: usize, runs: usize) -> Vec<Duration> {
     let (mut rng, mut measures, base) = set_up(size);
 
-    while measures.len() < 1000 {
+    while measures.len() < runs {
         let mut ml = base.clone();
         let (elem, index) = gen_elem_and_index(&mut rng, &ml);
 
@@ -69,9 +87,9 @@ fn gen_elem_and_index(rng: &mut Xoshiro256Plus, ml: &MultiList<Item>) -> (Item, 
     (rng.gen_range(0..10), Index::new(level, node))
 }
 
-fn analyze_measures(measures: &Vec<Duration>) {
+fn print_stats(measures: &Vec<Duration>) {
     let min = measures.iter().min().unwrap();
-    let avg= measures.iter().sum::<Duration>() / measures.len() as u32;
+    let avg = measures.iter().sum::<Duration>() / measures.len() as u32;
     let max = measures.iter().max().unwrap();
 
     println!("Min: {:?}\nMax: {:?}\nAvg: {:?}", min, max, avg);
