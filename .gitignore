@@ -12,3 +12,5 @@ target/
 # IDE configs
 .idea
 .vscode
+
+.DS_Store
