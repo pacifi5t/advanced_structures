@@ -1,6 +1,6 @@
-use std::cell::RefCell;
 pub use linked_list::LinkedList;
 pub use multilist::MultiList;
+use std::cell::RefCell;
 use std::ptr::NonNull;
 use std::rc::Rc;
 
@@ -23,7 +23,7 @@ impl<T> Node<T> {
         }
     }
 
-    fn into_elem(self: Box<Self>) -> T {
+    fn into_elem(self) -> T {
         self.elem
     }
 }

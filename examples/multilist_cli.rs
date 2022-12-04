@@ -19,8 +19,10 @@ fn main() {
 
         match parse_args(String::from(buf.trim()), &mut copies) {
             Err(err) => println!("Error: {}", err),
-            Ok(exit_flag) => if exit_flag {
-                break;
+            Ok(exit_flag) => {
+                if exit_flag {
+                    break;
+                }
             }
         };
         print_breaks();
@@ -101,7 +103,8 @@ fn parse_args(buf: String, copies: &mut Vec<MultiList<Item>>) -> Result<bool, Bo
 fn remove_level(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
     check_args(2, args.len(), None)?;
     ml.remove_level(args[1].parse()?)?;
-    Ok(info(ml))
+    info(ml);
+    Ok(())
 }
 
 fn move_elem(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
@@ -109,7 +112,8 @@ fn move_elem(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Er
     let src = parse_index(&args, 1)?;
     let dst = parse_index(&args, 2)?;
     ml.move_elem(src, dst)?;
-    Ok(info(ml))
+    info(ml);
+    Ok(())
 }
 
 fn attach_child(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
@@ -118,14 +122,16 @@ fn attach_child(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn
     let at = parse_index(&args, 1)?;
     ml.attach_child(at, args[2].parse()?)?;
 
-    Ok(info(ml))
+    info(ml);
+    Ok(())
 }
 
 fn detach_child(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
     check_args(2, args.len(), None)?;
     let at = parse_index(&args, 1)?;
     ml.detach_child(at)?;
-    Ok(info(ml))
+    info(ml);
+    Ok(())
 }
 
 fn insert(ml: &mut MultiList<Item>, args: Vec<&str>, alt: bool) -> Result<(), Box<dyn Error>> {
@@ -137,14 +143,16 @@ fn insert(ml: &mut MultiList<Item>, args: Vec<&str>, alt: bool) -> Result<(), Bo
         ml.insert(parse_index(&args, 1)?, args[2].parse()?)?;
     }
 
-    Ok(info(ml))
+    info(ml);
+    Ok(())
 }
 
 fn pop(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
     check_args(2, args.len(), None)?;
     let at = parse_index(&args, 1)?;
     ml.pop(at)?;
-    Ok(info(ml))
+    info(ml);
+    Ok(())
 }
 
 fn parse_index(args: &Vec<&str>, i: usize) -> Result<Index, Box<dyn Error>> {
@@ -168,12 +176,16 @@ fn info(ml: &MultiList<Item>) {
 
 fn show(copies: &mut Vec<MultiList<Item>>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
     match args.len() {
-        1 => Ok(info(copies.last().unwrap())),
+        1 => {
+            info(copies.last().unwrap());
+            Ok(())
+        }
         2 => match (copies.len() - 1).checked_sub(args[1].parse::<usize>()?) {
             None => Err("incorrect parameter".into()),
             Some(index) => {
                 if let Some(ml) = copies.get(index) {
-                    Ok(info(ml))
+                    info(ml);
+                    Ok(())
                 } else {
                     Err("copy not found".into())
                 }
@@ -190,7 +202,8 @@ fn restore(copies: &mut Vec<MultiList<Item>>, args: Vec<&str>) -> Result<(), Box
         None => Err("incorrect parameter".into()),
         Some(index) => {
             if let Some(ml) = copies.get(index) {
-                Ok(copies.push(ml.clone()))
+                copies.push(ml.clone());
+                Ok(())
             } else {
                 Err("copy not found".into())
             }

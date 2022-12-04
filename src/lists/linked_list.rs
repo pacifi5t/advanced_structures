@@ -63,32 +63,6 @@ impl<'a, T> Iterator for IterMut<'a, T> {
     }
 }
 
-pub(super) struct NodeIter<'a, T: 'a> {
-    head: Option<NonNull<Node<T>>>,
-    len: usize,
-    marker: PhantomData<&'a Node<T>>,
-}
-
-impl<'a, T> Iterator for NodeIter<'a, T> {
-    type Item = &'a Node<T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.len {
-            0 => None,
-            _ => self.head.map(|node| unsafe {
-                let node = node.as_ref();
-                self.len -= 1;
-                self.head = node.next;
-                node
-            }),
-        }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.len, Some(self.len))
-    }
-}
-
 pub(super) struct NodeIterMut<'a, T: 'a> {
     head: Option<NonNull<Node<T>>>,
     len: usize,
@@ -303,20 +277,18 @@ impl<T> LinkedList<T> {
         }
     }
 
-    pub(super) fn node_iter(&self) -> NodeIter<T> {
-        NodeIter {
-            head: self.head,
-            len: self.len,
-            marker: PhantomData,
-        }
-    }
-
     pub(super) fn node_iter_mut(&self) -> NodeIterMut<T> {
         NodeIterMut {
             head: self.head,
             len: self.len,
             marker: PhantomData,
         }
+    }
+}
+
+impl<T> Default for LinkedList<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -391,10 +363,9 @@ where
 
 impl<T> Drop for LinkedList<T> {
     fn drop(&mut self) {
-        while self.len() != 0 {
-            match self.pop_front_node() {
-                Some(node) => drop(node),
-                None => {}
+        while !self.is_empty() {
+            if let Some(node) = self.pop_front_node() {
+                drop(node)
             }
         }
     }

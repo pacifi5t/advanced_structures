@@ -25,7 +25,7 @@ pub struct MultiList<T> {
 impl<T> MultiList<T> {
     pub fn new() -> Self {
         let head = Rc::from(RefCell::new(LinkedList::new()));
-        let index_map = HashMap::from([(0, vec![head.clone()])]);
+        let index_map = HashMap::from([(0, vec![head])]);
         MultiList { len: 0, index_map }
     }
 
@@ -66,7 +66,7 @@ impl<T> MultiList<T> {
         match self.get_sublist(&stub_index) {
             None => Err("can't find list at this index"),
             Some((list, index)) => {
-                if index >= list.borrow().len(){
+                if index >= list.borrow().len() {
                     return Err("index out of bounds");
                 }
 
@@ -83,7 +83,7 @@ impl<T> MultiList<T> {
             Some(mut node) => {
                 let node = unsafe { node.as_mut() };
 
-                if let Some(_) = &node.child {
+                if node.child.is_some() {
                     return Err("child already exists");
                 } else {
                     let mut list = LinkedList::new();
@@ -116,7 +116,7 @@ impl<T> MultiList<T> {
         match self.get_sublist(&at) {
             None => Err("can't find list at this index"),
             Some((list, index)) => {
-                if index >= list.borrow().len(){
+                if index >= list.borrow().len() {
                     return Err("index out of bounds");
                 }
 
@@ -132,7 +132,8 @@ impl<T> MultiList<T> {
         if level >= self.levels() {
             return Err("provided level does not exist");
         } else if level == 0 {
-            return Ok(self.clear());
+            self.clear();
+            return Ok(());
         }
 
         for list in self.index_map.get(&level).unwrap() {
@@ -214,7 +215,7 @@ impl<T> MultiList<T> {
 
     fn recalc_size(&mut self) {
         self.len = 0;
-        for (_, level) in &self.index_map {
+        for level in self.index_map.values() {
             for list in level {
                 self.len += list.borrow().len();
             }
@@ -252,6 +253,12 @@ impl<T> MultiList<T> {
     }
 }
 
+impl<T> Default for MultiList<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> Display for MultiList<T>
 where
     T: Debug + Display,
@@ -266,7 +273,7 @@ where
                 string.push_str(format!("{}:{}  ", i, each).as_str())
             }
 
-            writeln!(f, "Lv{} - {}", level + 1, string.trim().to_string())?
+            writeln!(f, "Lv{} - {}", level + 1, string.trim())?
         }
 
         Ok(())

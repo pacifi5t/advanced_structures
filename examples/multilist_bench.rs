@@ -1,13 +1,12 @@
-use std::error::Error;
-use std::fs::File;
-use std::io::Write;
-use std::time::{Duration, Instant};
+use advanced_structures::lists::multilist::Index;
+use advanced_structures::lists::MultiList;
 use clap::Parser;
 use rand::Rng;
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoshiro256Plus;
-use advanced_structures::lists::MultiList;
-use advanced_structures::lists::multilist::Index;
+use std::fs::File;
+use std::io::Write;
+use std::time::{Duration, Instant};
 
 type Item = i32;
 
@@ -24,7 +23,8 @@ fn generate_multilist(size: usize) -> MultiList<Item> {
     let range = 0..10;
 
     while ml.size() < 2 {
-        ml.insert(Index::new(0, 0), rng.gen_range(range.clone())).unwrap_or(());
+        ml.insert(Index::new(0, 0), rng.gen_range(range.clone()))
+            .unwrap_or(());
     }
 
     while ml.size() < size {
@@ -36,25 +36,27 @@ fn generate_multilist(size: usize) -> MultiList<Item> {
             0 => ml.insert(index, elem),
             1 => ml.insert_alt(index, elem),
             _ => ml.attach_child(index, elem),
-        }.unwrap_or(());
+        }
+        .unwrap_or(());
     }
 
     ml
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> std::io::Result<()> {
     let args = Args::parse() as Args;
 
     let measures = bench(args.size, args.runs);
     print_stats(&measures);
 
     let mut file = File::create(args.output)?;
+    let mut buf = String::new();
     for each in measures {
         let m = each.as_nanos() as f64 / 1000.0;
-        file.write(format!("{}\n", m).as_bytes())?;
+        buf += format!("{}\n", m).as_str();
     }
 
-    Ok(())
+    file.write_all(buf.as_bytes())
 }
 
 fn bench(size: usize, runs: usize) -> Vec<Duration> {
@@ -68,9 +70,8 @@ fn bench(size: usize, runs: usize) -> Vec<Duration> {
         let res = ml.attach_child(index, elem);
         let elapsed = now.elapsed();
 
-        match res {
-            Ok(_) => measures.push(elapsed),
-            Err(_) => {}
+        if res.is_ok() {
+            measures.push(elapsed)
         }
     }
 
@@ -78,7 +79,11 @@ fn bench(size: usize, runs: usize) -> Vec<Duration> {
 }
 
 fn set_up(size: usize) -> (Xoshiro256Plus, Vec<Duration>, MultiList<Item>) {
-    (Xoshiro256Plus::seed_from_u64(9857), Vec::new(), generate_multilist(size))
+    (
+        Xoshiro256Plus::seed_from_u64(9857),
+        Vec::new(),
+        generate_multilist(size),
+    )
 }
 
 fn gen_elem_and_index(rng: &mut Xoshiro256Plus, ml: &MultiList<Item>) -> (Item, Index) {
