@@ -10,7 +10,13 @@ pub struct SkipList<V> {
     len: usize,
 }
 
-impl<V> SkipList<V> {
+type MaybeNone<T> = Option<NonNull<T>>;
+type UpdateVec<V> = Vec<MaybeNone<SkipNode<usize, V>>>;
+
+impl<V> SkipList<V>
+where
+    V: Clone,
+{
     pub fn new(fraction: f64, max_level: usize) -> Self {
         let nil = SkipNode::<usize, V>::new(usize::MAX, None, max_level);
 
@@ -35,24 +41,8 @@ impl<V> SkipList<V> {
     }
 
     pub fn insert(&mut self, key: usize, value: V) {
-        let mut update = vec![None; self.max_level + 1];
-        let mut current = Some(self.head);
-
         unsafe {
-            for i in (0..=self.cur_level).rev() {
-                while let Some(next) = current.unwrap().as_ref().next[i] {
-                    if next.as_ref().key < key {
-                        current = Some(next);
-                    } else {
-                        break;
-                    }
-                }
-
-                update[i] = current;
-            }
-
-            current = current.unwrap().as_ref().next[0];
-
+            let (current, mut update) = self.find_node_update(key);
             if current.is_none() || current.unwrap().as_ref().key != key {
                 let level = self.random_level();
 
@@ -71,6 +61,76 @@ impl<V> SkipList<V> {
                     node_ptr.as_mut().next[i] = each.next[i];
                     each.next[i] = Some(node_ptr);
                 }
+
+                self.len += 1;
+            }
+            //TODO: return error that key exists
+        }
+    }
+
+    pub fn remove(&mut self, key: usize) -> Option<V> {
+        unsafe {
+            let (current, update) = self.find_node_update(key);
+            let current_key = current?.as_ref().key;
+
+            if current_key != key {
+                return None;
+            }
+
+            for i in 0..=self.cur_level {
+                let update_each = update[i].unwrap().as_mut();
+                if update_each.next[i] != current {
+                    break;
+                }
+                update_each.next[i] = current.unwrap().as_ref().next[i]
+            }
+
+            while self.cur_level > 0 && self.head.as_ref().next[self.cur_level].is_none() {
+                self.cur_level -= 1;
+            }
+
+            Box::from_raw(current?.as_ptr()).value
+        }
+    }
+
+    fn find_node_update(&self, key: usize) -> (MaybeNone<SkipNode<usize, V>>, UpdateVec<V>) {
+        let mut update = vec![None; self.max_level + 1];
+        let mut current = Some(self.head);
+
+        unsafe {
+            for lvl in (0..=self.cur_level).rev() {
+                Self::iter_node_on_level(&mut current, key, lvl);
+                update[lvl] = current;
+            }
+
+            current = current.unwrap().as_ref().next[0];
+            (current, update)
+        }
+    }
+
+    pub fn find(&self, key: usize) -> Option<V> {
+        unsafe {
+            let mut current = Some(self.head);
+
+            for lvl in (0..=self.cur_level).rev() {
+                Self::iter_node_on_level(&mut current, key, lvl);
+            }
+
+            current = current.unwrap().as_ref().next[0];
+            current?.as_ref().value.clone()
+        }
+    }
+
+    unsafe fn iter_node_on_level(
+        current: &mut MaybeNone<SkipNode<usize, V>>,
+        search_key: usize,
+        lvl: usize,
+    ) {
+        while let Some(next) = current.unwrap().as_ref().next[lvl] {
+            if next.as_ref().key < search_key {
+                *current = Some(next);
+            } else {
+                break;
             }
         }
     }
@@ -91,8 +151,13 @@ impl<V> SkipList<V> {
     }
 }
 
-impl<V> Default for SkipList<V> {
+impl<V> Default for SkipList<V>
+where
+    V: Clone,
+{
     fn default() -> Self {
         Self::new(0.5, usize::MAX)
     }
 }
+
+//TODO: IMPLEMENT DESTRUCTOR
