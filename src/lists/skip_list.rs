@@ -1,8 +1,9 @@
 use crate::lists::SkipNode;
 use rand::{thread_rng, Rng};
+use std::ptr::NonNull;
 
 pub struct SkipList<V> {
-    head: *mut SkipNode<usize, V>,
+    head: NonNull<SkipNode<usize, V>>,
     fraction: f64,
     max_level: usize,
     cur_level: usize,
@@ -12,10 +13,9 @@ pub struct SkipList<V> {
 impl<V> SkipList<V> {
     pub fn new(fraction: f64, max_level: usize) -> Self {
         let nil = SkipNode::<usize, V>::new(usize::MAX, None, max_level);
-        let nil_ptr = Box::leak(Box::new(nil));
 
         SkipList {
-            head: nil_ptr,
+            head: NonNull::from(Box::leak(Box::new(nil))),
             fraction,
             max_level,
             cur_level: 0,
@@ -35,36 +35,41 @@ impl<V> SkipList<V> {
     }
 
     pub fn insert(&mut self, key: usize, value: V) {
-        let mut update = vec![std::ptr::null_mut(); self.max_level + 1];
-        let mut current = self.head;
+        let mut update = vec![None; self.max_level + 1];
+        let mut current = Some(self.head);
 
         unsafe {
             for i in (0..=self.cur_level).rev() {
-                while !(*current).next[i].is_null() && (*(*current).next[i]).key < key {
-                    current = (*current).next[i]
+                while let Some(next) = current.unwrap().as_ref().next[i] {
+                    if next.as_ref().key < key {
+                        current = Some(next);
+                    } else {
+                        break;
+                    }
                 }
 
                 update[i] = current;
             }
 
-            current = (*current).next[0];
+            current = current.unwrap().as_ref().next[0];
 
-            if current.is_null() || (*current).key != key {
-                let rlevel = self.random_level();
+            if current.is_none() || current.unwrap().as_ref().key != key {
+                let level = self.random_level();
 
-                if rlevel > self.cur_level {
-                    for i in (self.cur_level + 1)..(rlevel + 1) {
-                        update[i] = self.head
+                if level > self.cur_level {
+                    for i in (self.cur_level + 1)..=level {
+                        update[i] = Some(self.head)
                     }
-                    self.cur_level = rlevel
+                    self.cur_level = level
                 }
 
-                let node = SkipNode::new(key, Some(value), rlevel);
-                let node_ref = Box::leak(Box::new(node));
+                let node = SkipNode::new(key, Some(value), level);
+                let mut node_ptr = NonNull::from(Box::leak(Box::new(node)));
 
-                for i in 0..rlevel + 1 {
-                    node_ref.next[i] = (*update[i]).next[i];
-                    (*update[i]).next[i] = node_ref;
+                for i in 0..=level {
+                    let each = update[i].unwrap().as_mut();
+                    node_ptr.as_mut().next[i] = each.next[i];
+                    each.next[i] = Some(node_ptr);
                 }
             }
         }
@@ -74,10 +79,11 @@ impl<V> SkipList<V> {
         unsafe {
             for lvl in 0..self.cur_level + 1 {
                 print!("Level {}:  ", lvl);
-                let mut node = (*self.head).next[lvl];
-                while !node.is_null() {
-                    print!("{} ", (*node).key);
-                    node = (*node).next[lvl];
+                let mut node = (self.head.as_ref()).next[lvl];
+                while node.is_some() {
+                    let node_ref = node.unwrap().as_ref();
+                    print!("{} ", node_ref.key);
+                    node = node_ref.next[lvl];
                 }
                 println!();
             }

@@ -31,7 +31,7 @@ impl<T> Node<T> {
 
 #[derive(Clone)]
 struct SkipNode<K, V> {
-    next: Vec<*mut SkipNode<K, V>>,
+    next: Vec<Option<NonNull<SkipNode<K, V>>>>,
     key: K,
     value: Option<V>,
 }
@@ -39,7 +39,7 @@ struct SkipNode<K, V> {
 impl<K, V> SkipNode<K, V> {
     fn new(key: K, value: Option<V>, level: usize) -> Self {
         SkipNode {
-            next: vec![null_mut(); level + 1],
+            next: vec![None; level + 1],
             key,
             value,
         }
