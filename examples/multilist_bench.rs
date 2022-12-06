@@ -60,10 +60,9 @@ fn main() -> std::io::Result<()> {
 }
 
 fn bench(size: usize, runs: usize) -> Vec<Duration> {
-    let (mut rng, mut measures, base) = set_up(size);
+    let (mut rng, mut measures, mut ml) = set_up(size);
 
     while measures.len() < runs {
-        let mut ml = base.clone();
         let (elem, index) = gen_elem_and_index(&mut rng, &ml);
 
         let now = Instant::now();
@@ -71,7 +70,8 @@ fn bench(size: usize, runs: usize) -> Vec<Duration> {
         let elapsed = now.elapsed();
 
         if res.is_ok() {
-            measures.push(elapsed)
+            measures.push(elapsed);
+            ml.detach_child(index).unwrap_or(());
         }
     }
 

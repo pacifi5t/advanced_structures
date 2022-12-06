@@ -6,6 +6,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ptr::NonNull;
 use std::rc::Rc;
 
+#[derive(Copy, Clone)]
 pub struct Index {
     level: usize,
     node: usize,
