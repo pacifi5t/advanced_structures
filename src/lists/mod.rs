@@ -1,7 +1,7 @@
 pub use linked_list::LinkedList;
 pub use multilist::MultiList;
 use std::cell::RefCell;
-use std::ptr::{null_mut, NonNull};
+use std::ptr::NonNull;
 use std::rc::Rc;
 
 mod linked_list;
@@ -33,11 +33,11 @@ impl<T> Node<T> {
 struct SkipNode<K, V> {
     next: Vec<Option<NonNull<SkipNode<K, V>>>>,
     key: K,
-    value: Option<V>,
+    value: V,
 }
 
 impl<K, V> SkipNode<K, V> {
-    fn new(key: K, value: Option<V>, level: usize) -> Self {
+    fn new(key: K, value: V, level: usize) -> Self {
         SkipNode {
             next: vec![None; level + 1],
             key,

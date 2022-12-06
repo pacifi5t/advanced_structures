@@ -1,9 +1,13 @@
 use crate::lists::SkipNode;
 use rand::{thread_rng, Rng};
 use std::fmt::{Debug, Formatter};
+use std::marker::PhantomData;
 use std::ptr::NonNull;
 
-pub struct SkipList<V> {
+pub struct SkipList<V>
+where
+    V: Default,
+{
     head: NonNull<SkipNode<usize, V>>,
     fraction: f64,
     max_level: usize,
@@ -14,9 +18,39 @@ pub struct SkipList<V> {
 type MaybeNone<T> = Option<NonNull<T>>;
 type UpdateVec<V> = Vec<MaybeNone<SkipNode<usize, V>>>;
 
-impl<V> SkipList<V> {
+struct NodeIter<'a, V: 'a> {
+    current: MaybeNone<SkipNode<usize, V>>,
+    len: usize,
+    marker: PhantomData<&'a SkipNode<usize, V>>,
+}
+
+impl<'a, V> Iterator for NodeIter<'a, V> {
+    type Item = &'a SkipNode<usize, V>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.len == 0 {
+            None
+        } else {
+            self.current.map(|node| unsafe {
+                let node = node.as_ref();
+                self.len -= 1;
+                self.current = node.next[0];
+                node
+            })
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+impl<V> SkipList<V>
+where
+    V: Default,
+{
     pub fn new(fraction: f64, max_level: usize) -> Self {
-        let nil = SkipNode::<usize, V>::new(usize::MAX, None, max_level);
+        let nil = SkipNode::<usize, V>::new(usize::MAX, V::default(), max_level);
 
         SkipList {
             head: NonNull::from(Box::leak(Box::new(nil))),
@@ -55,7 +89,7 @@ impl<V> SkipList<V> {
                     self.cur_level = level
                 }
 
-                let node = SkipNode::new(key, Some(value), level);
+                let node = SkipNode::new(key, value, level);
                 let mut node_ptr = NonNull::from(Box::leak(Box::new(node)));
 
                 for i in 0..=level {
@@ -73,7 +107,7 @@ impl<V> SkipList<V> {
     }
 
     pub fn pop(&mut self, key: usize) -> Option<V> {
-        self.pop_node(key)?.value
+        Some(self.pop_node(key)?.value)
     }
 
     fn pop_node(&mut self, key: usize) -> Option<Box<SkipNode<usize, V>>> {
@@ -129,10 +163,18 @@ impl<V> SkipList<V> {
 
             let current_ref = current?.as_ref();
             if current_ref.key == key {
-                current_ref.value.as_ref()
+                Some(&current_ref.value)
             } else {
                 None
             }
+        }
+    }
+
+    fn node_iter(&self) -> NodeIter<V> {
+        NodeIter {
+            current: unsafe { self.head.as_ref().next[0] },
+            len: self.len,
+            marker: PhantomData,
         }
     }
 
@@ -151,13 +193,34 @@ impl<V> SkipList<V> {
     }
 }
 
-impl<V> Default for SkipList<V> {
+impl<V> Default for SkipList<V>
+where
+    V: Default,
+{
     fn default() -> Self {
         Self::new(0.5, usize::MAX)
     }
 }
 
-impl<V> Debug for SkipList<V> {
+impl<V> Clone for SkipList<V>
+where
+    V: Default + Clone,
+{
+    fn clone(&self) -> Self {
+        let mut clone = SkipList::new(self.fraction, self.max_level);
+
+        for each in self.node_iter() {
+            clone.insert(each.key, each.value.clone()).unwrap_or(());
+        }
+
+        clone
+    }
+}
+
+impl<V> Debug for SkipList<V>
+where
+    V: Default,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for lvl in 0..self.cur_level + 1 {
             write!(f, "Lv{} - ", lvl)?;
@@ -173,7 +236,10 @@ impl<V> Debug for SkipList<V> {
     }
 }
 
-impl<V> Drop for SkipList<V> {
+impl<V> Drop for SkipList<V>
+where
+    V: Default,
+{
     fn drop(&mut self) {
         unsafe {
             let mut key = self.head.as_ref().next[0].unwrap().as_ref().key;

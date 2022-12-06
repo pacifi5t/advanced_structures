@@ -13,10 +13,10 @@ fn main() {
     list.insert(21, 111);
     list.insert(25, 900);
 
-    println!("{:?}", list);
+    let mut list2 = list.clone();
+    list2.pop(19);
+    list2.pop(26);
 
-    println!("{:?}", list.find(20));
-    println!("{:?}", list.pop(3));
-
     println!("{:?}", list);
+    println!("{:?}", list2);
 }
