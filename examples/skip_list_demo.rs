@@ -13,10 +13,10 @@ fn main() {
     list.insert(21, 111);
     list.insert(25, 900);
 
-    list.display();
+    println!("{:?}", list);
 
-    println!("{:?}", list.find(12));
-    println!("{:?}", list.remove(21));
+    println!("{:?}", list.find(20));
+    println!("{:?}", list.pop(3));
 
-    list.display();
+    println!("{:?}", list);
 }

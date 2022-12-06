@@ -1,5 +1,6 @@
 use crate::lists::SkipNode;
 use rand::{thread_rng, Rng};
+use std::fmt::{Debug, Formatter};
 use std::ptr::NonNull;
 
 pub struct SkipList<V> {
@@ -13,10 +14,7 @@ pub struct SkipList<V> {
 type MaybeNone<T> = Option<NonNull<T>>;
 type UpdateVec<V> = Vec<MaybeNone<SkipNode<usize, V>>>;
 
-impl<V> SkipList<V>
-where
-    V: Clone,
-{
+impl<V> SkipList<V> {
     pub fn new(fraction: f64, max_level: usize) -> Self {
         let nil = SkipNode::<usize, V>::new(usize::MAX, None, max_level);
 
@@ -27,6 +25,10 @@ where
             cur_level: 0,
             len: 0,
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     pub fn random_level(&self) -> usize {
@@ -40,7 +42,7 @@ where
         level
     }
 
-    pub fn insert(&mut self, key: usize, value: V) {
+    pub fn insert(&mut self, key: usize, value: V) -> Result<(), &str> {
         unsafe {
             let (current, mut update) = self.find_node_update(key);
             if current.is_none() || current.unwrap().as_ref().key != key {
@@ -63,12 +65,18 @@ where
                 }
 
                 self.len += 1;
+                Ok(())
+            } else {
+                Err("provided key already exists")
             }
-            //TODO: return error that key exists
         }
     }
 
-    pub fn remove(&mut self, key: usize) -> Option<V> {
+    pub fn pop(&mut self, key: usize) -> Option<V> {
+        self.pop_node(key)?.value
+    }
+
+    fn pop_node(&mut self, key: usize) -> Option<Box<SkipNode<usize, V>>> {
         unsafe {
             let (current, update) = self.find_node_update(key);
             let current_key = current?.as_ref().key;
@@ -89,7 +97,8 @@ where
                 self.cur_level -= 1;
             }
 
-            Box::from_raw(current?.as_ptr()).value
+            self.len -= 1;
+            Some(Box::from_raw(current?.as_ptr()))
         }
     }
 
@@ -108,7 +117,7 @@ where
         }
     }
 
-    pub fn find(&self, key: usize) -> Option<V> {
+    pub fn find(&self, key: usize) -> Option<&V> {
         unsafe {
             let mut current = Some(self.head);
 
@@ -117,7 +126,13 @@ where
             }
 
             current = current.unwrap().as_ref().next[0];
-            current?.as_ref().value.clone()
+
+            let current_ref = current?.as_ref();
+            if current_ref.key == key {
+                current_ref.value.as_ref()
+            } else {
+                None
+            }
         }
     }
 
@@ -134,30 +149,45 @@ where
             }
         }
     }
-
-    pub fn display(&self) {
-        unsafe {
-            for lvl in 0..self.cur_level + 1 {
-                print!("Level {}:  ", lvl);
-                let mut node = (self.head.as_ref()).next[lvl];
-                while node.is_some() {
-                    let node_ref = node.unwrap().as_ref();
-                    print!("{} ", node_ref.key);
-                    node = node_ref.next[lvl];
-                }
-                println!();
-            }
-        }
-    }
 }
 
-impl<V> Default for SkipList<V>
-where
-    V: Clone,
-{
+impl<V> Default for SkipList<V> {
     fn default() -> Self {
         Self::new(0.5, usize::MAX)
     }
 }
 
-//TODO: IMPLEMENT DESTRUCTOR
+impl<V> Debug for SkipList<V> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for lvl in 0..self.cur_level + 1 {
+            write!(f, "Lv{} - ", lvl)?;
+            let mut node = unsafe { (self.head.as_ref()).next[lvl] };
+            while node.is_some() {
+                let node_ref = unsafe { node.unwrap().as_ref() };
+                write!(f, "{} ", node_ref.key)?;
+                node = node_ref.next[lvl];
+            }
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+}
+
+impl<V> Drop for SkipList<V> {
+    fn drop(&mut self) {
+        unsafe {
+            let mut key = self.head.as_ref().next[0].unwrap().as_ref().key;
+            while !self.is_empty() {
+                if let Some(node) = self.pop_node(key) {
+                    if let Some(next) = node.next[0] {
+                        key = next.as_ref().key;
+                    }
+
+                    drop(node)
+                }
+            }
+
+            drop(Box::from_raw(self.head.as_ptr()))
+        }
+    }
+}
