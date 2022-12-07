@@ -1,5 +1,6 @@
-pub use linked_list::LinkedList;
+use linked_list::LinkedList;
 pub use multilist::MultiList;
+pub use skip_list::SkipList;
 use std::cell::RefCell;
 use std::ptr::NonNull;
 use std::rc::Rc;

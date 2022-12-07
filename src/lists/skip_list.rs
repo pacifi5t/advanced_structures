@@ -61,6 +61,10 @@ where
         }
     }
 
+    pub fn clear(&mut self) {
+        *self = Self::new(self.fraction, self.max_level)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
