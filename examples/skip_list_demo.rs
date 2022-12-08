@@ -2,7 +2,6 @@ use advanced_structures::lists::skip_list::SkipList;
 use rand::{thread_rng, Rng};
 use std::error::Error;
 use std::io::stdin;
-use std::num::ParseFloatError;
 
 type Item = i32;
 
@@ -46,6 +45,7 @@ fn print_help() {
         "insert [key] [elem]"
     );
     println!("\t{:<42}Delete elem from skip list via key", "pop [key]");
+    println!("\t{:<42}Find elem by [key]", "find [key]");
     println!("\t{:<42}Clear the list", "clear");
     println!("\t{:<42}Create a copy of multilist", "clone");
     println!(
@@ -68,6 +68,7 @@ fn parse_args(buf: String, copies: &mut Vec<SkipList<Item>>) -> Result<bool, Box
         "show" => show(copies, args)?,
         "insert" => insert(sl, args)?,
         "pop" => pop(sl, args)?,
+        "find" => find(sl, args)?,
         "clear" => sl.clear(),
         "clone" => {
             let copy = sl.clone();
@@ -122,6 +123,18 @@ fn pop(sl: &mut SkipList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
         None => Err("key not found".into()),
         Some(_) => {
             info(sl);
+            Ok(())
+        }
+    }
+}
+
+fn find(sl: &SkipList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
+    check_args(2, args.len(), None)?;
+
+    match sl.find(args[1].parse()?) {
+        None => Err("key not found".into()),
+        Some(found) => {
+            println!("Found {}", found);
             Ok(())
         }
     }
