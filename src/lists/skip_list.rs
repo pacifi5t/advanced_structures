@@ -18,6 +18,8 @@ where
 type MaybeNone<T> = Option<NonNull<T>>;
 type UpdateVec<V> = Vec<MaybeNone<SkipNode<usize, V>>>;
 
+const MAX_LEVEL: usize = u16::MAX as usize;
+
 struct NodeIter<'a, V: 'a> {
     current: MaybeNone<SkipNode<usize, V>>,
     len: usize,
@@ -59,6 +61,10 @@ where
             cur_level: 0,
             len: 0,
         }
+    }
+
+    pub fn with_fraction(fraction: f64) -> Self {
+        Self::new(fraction, MAX_LEVEL)
     }
 
     pub fn clear(&mut self) {
@@ -214,7 +220,7 @@ where
     V: Default,
 {
     fn default() -> Self {
-        Self::new(0.5, u16::MAX as usize)
+        Self::new(0.5, MAX_LEVEL)
     }
 }
 
