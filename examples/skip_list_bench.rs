@@ -12,7 +12,7 @@ type Item = i32;
 
 #[derive(Parser, Debug)]
 struct Args {
-    /// Method to benchmark (insert, pop, find)
+    /// Method to benchmark
     #[arg(value_parser = clap::builder::PossibleValuesParser::new(["insert", "pop", "find"]))]
     method: String,
 
@@ -111,10 +111,9 @@ fn bench_pop(size: usize, runs: usize, fraction: f64) -> Vec<Duration> {
 
         let now = Instant::now();
         let res = sl.pop(key);
-        let elapsed = now.elapsed();
+        measures.push(now.elapsed());
 
         if let Some(value) = res {
-            measures.push(elapsed);
             sl.insert(key, value).unwrap_or(());
         }
     }
