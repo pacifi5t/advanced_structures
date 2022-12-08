@@ -69,15 +69,16 @@ where
         self.len == 0
     }
 
-    pub fn random_level(&self) -> usize {
-        let mut rng = thread_rng();
-        let mut level = 0;
+    pub fn len(&self) -> usize {
+        self.len
+    }
 
-        while rng.gen_range(0.0..1.0) < self.fraction && level < self.max_level {
-            level += 1
-        }
+    pub fn cur_level(&self) -> usize {
+        self.cur_level
+    }
 
-        level
+    pub fn max_level(&self) -> usize {
+        self.max_level
     }
 
     pub fn insert(&mut self, key: usize, value: V) -> Result<(), &str> {
@@ -108,6 +109,17 @@ where
                 Err("provided key already exists")
             }
         }
+    }
+
+    fn random_level(&self) -> usize {
+        let mut rng = thread_rng();
+        let mut level = 0;
+
+        while rng.gen_range(0.0..1.0) < self.fraction && level < self.max_level {
+            level += 1
+        }
+
+        level
     }
 
     pub fn pop(&mut self, key: usize) -> Option<V> {
@@ -202,7 +214,7 @@ where
     V: Default,
 {
     fn default() -> Self {
-        Self::new(0.5, usize::MAX)
+        Self::new(0.5, u16::MAX as usize)
     }
 }
 
