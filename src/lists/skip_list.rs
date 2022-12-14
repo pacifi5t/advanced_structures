@@ -213,6 +213,27 @@ where
             }
         }
     }
+
+    pub fn node_ptrs(&self) -> usize {
+        let mut node_ptrs = 0;
+
+        for node in self.node_iter() {
+            for ptr in &node.next {
+                if ptr.is_some() {
+                    node_ptrs += 1;
+                }
+            }
+        }
+        unsafe {
+            for ptr in &self.head.as_ref().next {
+                if ptr.is_some() {
+                    node_ptrs += 1;
+                }
+            }
+        }
+
+        node_ptrs
+    }
 }
 
 impl<V> Default for SkipList<V>

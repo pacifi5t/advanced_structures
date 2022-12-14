@@ -9,6 +9,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 type Item = i32;
+type BenchFn = fn(usize, usize, f64) -> (Vec<Duration>, SkipList<Item>);
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -44,10 +45,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn bench(func: fn(usize, usize, f64) -> Vec<Duration>, args: Args) -> io::Result<()> {
-    let measures_1_2 = func(args.size, args.runs, 0.5);
-    let measures_1_4 = func(args.size, args.runs, 0.25);
-    let measures_1_e = func(args.size, args.runs, 1.0 / std::f64::consts::E);
+fn bench(func: BenchFn, args: Args) -> io::Result<()> {
+    let (measures_1_2, sl1) = func(args.size, args.runs, 0.5);
+    let (measures_1_4, sl2) = func(args.size, args.runs, 0.25);
+    let (measures_1_e, sl3) = func(args.size, args.runs, 1.0 / std::f64::consts::E);
+
+    print_stats("p = 1/2", &measures_1_2, &sl1);
+    print_stats("p = 1/4", &measures_1_4, &sl2);
+    print_stats("p = 1/e", &measures_1_e, &sl3);
 
     save_measures(args.output.clone(), "p=1_2.csv".into(), measures_1_2)?;
     save_measures(args.output.clone(), "p=1_4.csv".into(), measures_1_4)?;
@@ -84,7 +89,7 @@ fn gen_key_value(rng: &mut Xoshiro256Plus) -> (usize, Item) {
     (rng.gen_range(0..usize::MAX), rng.gen())
 }
 
-fn bench_insert(size: usize, runs: usize, fraction: f64) -> Vec<Duration> {
+fn bench_insert(size: usize, runs: usize, fraction: f64) -> (Vec<Duration>, SkipList<Item>) {
     let (mut rng, mut measures, mut sl) = set_up(size, fraction);
 
     while measures.len() < runs {
@@ -100,10 +105,10 @@ fn bench_insert(size: usize, runs: usize, fraction: f64) -> Vec<Duration> {
         }
     }
 
-    measures
+    (measures, sl)
 }
 
-fn bench_pop(size: usize, runs: usize, fraction: f64) -> Vec<Duration> {
+fn bench_pop(size: usize, runs: usize, fraction: f64) -> (Vec<Duration>, SkipList<Item>) {
     let (mut rng, mut measures, mut sl) = set_up(size, fraction);
 
     while measures.len() < runs {
@@ -118,10 +123,10 @@ fn bench_pop(size: usize, runs: usize, fraction: f64) -> Vec<Duration> {
         }
     }
 
-    measures
+    (measures, sl)
 }
 
-fn bench_find(size: usize, runs: usize, fraction: f64) -> Vec<Duration> {
+fn bench_find(size: usize, runs: usize, fraction: f64) -> (Vec<Duration>, SkipList<Item>) {
     let (mut rng, mut measures, sl) = set_up(size, fraction);
 
     while measures.len() < runs {
@@ -131,7 +136,7 @@ fn bench_find(size: usize, runs: usize, fraction: f64) -> Vec<Duration> {
         measures.push(now.elapsed())
     }
 
-    measures
+    (measures, sl)
 }
 
 fn set_up(size: usize, fraction: f64) -> (Xoshiro256Plus, Vec<Duration>, SkipList<Item>) {
@@ -140,4 +145,15 @@ fn set_up(size: usize, fraction: f64) -> (Xoshiro256Plus, Vec<Duration>, SkipLis
         Vec::new(),
         generate_skip_list(size, fraction),
     )
+}
+
+fn print_stats(caption: &str, measures: &Vec<Duration>, sl: &SkipList<Item>) {
+    let min = measures.iter().min().unwrap();
+    let avg = measures.iter().sum::<Duration>() / measures.len() as u32;
+    let max = measures.iter().max().unwrap();
+    let ptrs = sl.node_ptrs() as f64 / (sl.cur_level() + 1) as f64;
+
+    println!("{}", caption);
+    println!("Min: {:?}\nMax: {:?}\nAvg: {:?}", min, max, avg);
+    println!("Avg pointers per level: {:.2}\n", ptrs);
 }

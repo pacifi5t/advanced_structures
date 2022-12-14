@@ -151,10 +151,11 @@ fn check_args(expected: usize, actual: usize, msg: Option<&str>) -> Result<(), &
 fn info(sl: &SkipList<Item>) {
     print!("{:?}", sl);
     println!(
-        "Length: {}  Current level: {}  Max level: {}",
+        "Length: {}  Current level: {}  Max level: {}  Pointers: {}",
         sl.len(),
         sl.cur_level(),
-        sl.max_level()
+        sl.max_level(),
+        sl.node_ptrs()
     );
 }
 
