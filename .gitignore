@@ -13,4 +13,7 @@ target/
 .idea
 .vscode
 
+# Temporary files
 .DS_Store
+results
+*.zip
