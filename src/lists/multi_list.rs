@@ -1,9 +1,9 @@
 use super::LinkedList;
 use super::Node;
+use crate::MaybeNone;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
-use std::ptr::NonNull;
 use std::rc::Rc;
 
 #[derive(Copy, Clone)]
@@ -173,7 +173,7 @@ impl<T> MultiList<T> {
         Ok(())
     }
 
-    fn get_sublist_node(&self, at: &Index) -> Option<NonNull<Node<T>>> {
+    fn get_sublist_node(&self, at: &Index) -> MaybeNone<Node<T>> {
         let (list, index) = self.get_sublist(at)?;
         let node = list.borrow().get_node(index);
         node

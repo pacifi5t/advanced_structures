@@ -1,16 +1,16 @@
 use crate::lists::Node;
+use crate::MaybeNone;
 use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
-use std::ptr::NonNull;
 
 pub struct LinkedList<T> {
-    head: Option<NonNull<Node<T>>>,
-    tail: Option<NonNull<Node<T>>>,
+    head: MaybeNone<Node<T>>,
+    tail: MaybeNone<Node<T>>,
     len: usize,
 }
 
 pub struct Iter<'a, T: 'a> {
-    head: Option<NonNull<Node<T>>>,
+    head: MaybeNone<Node<T>>,
     len: usize,
     marker: PhantomData<&'a Node<T>>,
 }
@@ -37,7 +37,7 @@ impl<'a, T> Iterator for Iter<'a, T> {
 }
 
 pub struct IterMut<'a, T: 'a> {
-    head: Option<NonNull<Node<T>>>,
+    head: MaybeNone<Node<T>>,
     len: usize,
     marker: PhantomData<&'a mut Node<T>>,
 }
@@ -64,7 +64,7 @@ impl<'a, T> Iterator for IterMut<'a, T> {
 }
 
 pub(super) struct NodeIterMut<'a, T: 'a> {
-    head: Option<NonNull<Node<T>>>,
+    head: MaybeNone<Node<T>>,
     len: usize,
     marker: PhantomData<&'a Node<T>>,
 }
@@ -200,7 +200,7 @@ impl<T> LinkedList<T> {
         })
     }
 
-    pub(super) fn get_node(&self, at: usize) -> Option<NonNull<Node<T>>> {
+    pub(super) fn get_node(&self, at: usize) -> MaybeNone<Node<T>> {
         if self.is_empty() || at >= self.len {
             return None;
         }

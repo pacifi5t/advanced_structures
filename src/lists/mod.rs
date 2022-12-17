@@ -1,17 +1,17 @@
+use crate::MaybeNone;
 use linked_list::LinkedList;
-pub use multilist::MultiList;
+pub use multi_list::MultiList;
 pub use skip_list::SkipList;
 use std::cell::RefCell;
-use std::ptr::NonNull;
 use std::rc::Rc;
 
 mod linked_list;
-pub mod multilist;
+pub mod multi_list;
 pub mod skip_list;
 
 #[derive(Clone)]
 struct Node<T> {
-    next: Option<NonNull<Node<T>>>,
+    next: MaybeNone<Node<T>>,
     child: Option<Rc<RefCell<LinkedList<T>>>>,
     elem: T,
 }
@@ -32,7 +32,7 @@ impl<T> Node<T> {
 
 #[derive(Clone)]
 struct SkipNode<K, V> {
-    next: Vec<Option<NonNull<SkipNode<K, V>>>>,
+    next: Vec<MaybeNone<SkipNode<K, V>>>,
     key: K,
     value: V,
 }

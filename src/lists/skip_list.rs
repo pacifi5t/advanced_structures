@@ -1,4 +1,5 @@
 use crate::lists::SkipNode;
+use crate::MaybeNone;
 use rand::{thread_rng, Rng};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
@@ -15,7 +16,6 @@ where
     len: usize,
 }
 
-type MaybeNone<T> = Option<NonNull<T>>;
 type UpdateVec<V> = Vec<MaybeNone<SkipNode<usize, V>>>;
 
 const MAX_LEVEL: usize = u16::MAX as usize;

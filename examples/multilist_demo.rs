@@ -1,4 +1,4 @@
-use advanced_structures::lists::multilist::Index;
+use advanced_structures::lists::multi_list::Index;
 use advanced_structures::lists::MultiList;
 use std::error::Error;
 use std::io::stdin;
