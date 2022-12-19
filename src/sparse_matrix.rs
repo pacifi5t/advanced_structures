@@ -208,18 +208,18 @@ impl<T> Debug for SparseMatrix<T>
 where
     T: Default + Copy + PartialEq + Debug,
 {
-    //FIXME: Too slow
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for i in 0..self.rows_vec.len() {
-            for j in 0..self.cols_vec.len() {
-                if let Some(node) = self.get_node(i, j) {
-                    unsafe { write!(f, "{:?} ", node.as_ref().value)? };
-                } else {
-                    write!(f, "{:?} ", T::default())?;
-                }
-            }
-            writeln!(f)?;
+        let shape = (self.rows_vec.len(), self.cols_vec.len());
+
+        write!(f, "[")?;
+        writeln!(f, "{:?},", self.row_iter(0).collect::<Vec<T>>())?;
+
+        for i in 1..(shape.0 - 1) {
+            writeln!(f, " {:?},", self.row_iter(i).collect::<Vec<T>>())?;
         }
+
+        writeln!(f, " {:?}]", self.row_iter(shape.0 - 1).collect::<Vec<T>>())?;
+        write!(f, "Shape: {}x{}  ", shape.0, shape.1)?;
         writeln!(f, "Sparsity: {:.2}", self.sparsity())
     }
 }
