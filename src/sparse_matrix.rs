@@ -1,5 +1,6 @@
 use crate::MaybeNone;
 use std::fmt::{Debug, Formatter};
+use std::ops::{Add, Mul, MulAssign};
 use std::ptr::NonNull;
 
 #[derive(Clone)]
@@ -138,7 +139,7 @@ where
         let mut update = matrix.cols_vec.clone();
         for i in 0..matrix.rows_vec.len() {
             for j in 0..update.len() {
-                if let Some(node) = matrix.get_node(i, j) {
+                if let Some(node) = matrix.get_node_rows(i, j) {
                     unsafe { update[j].as_mut().next_col = Some(node) };
                     update[j] = node;
                 }
@@ -179,6 +180,14 @@ where
     }
 
     fn get_node(&self, row: usize, col: usize) -> MaybeNone<Node<T>> {
+        if row > col {
+            self.get_node_rows(row, col)
+        } else {
+            self.get_node_cols(row, col)
+        }
+    }
+
+    fn get_node_rows(&self, row: usize, col: usize) -> MaybeNone<Node<T>> {
         unsafe {
             let mut node = self.rows_vec[row].as_ref().next_row;
 
@@ -187,6 +196,22 @@ where
             }
 
             if node?.as_ref().col == col {
+                node
+            } else {
+                None
+            }
+        }
+    }
+
+    fn get_node_cols(&self, row: usize, col: usize) -> MaybeNone<Node<T>> {
+        unsafe {
+            let mut node = self.cols_vec[col].as_ref().next_col;
+
+            while node?.as_ref().row < row {
+                node = node?.as_ref().next_col
+            }
+
+            if node?.as_ref().row == row {
                 node
             } else {
                 None
@@ -223,3 +248,71 @@ where
         writeln!(f, "Sparsity: {:.2}", self.sparsity())
     }
 }
+
+impl<T> Clone for SparseMatrix<T>
+where
+    T: Default + Copy + PartialEq,
+{
+    fn clone(&self) -> Self {
+        let mut vec = Vec::new();
+        for row in 0..self.rows_vec.len() {
+            vec.push(self.row_iter(row).collect())
+        }
+        SparseMatrix::from_2d_vec(vec)
+    }
+}
+
+impl<T> Mul<T> for SparseMatrix<T>
+where
+    T: Default + Copy + PartialEq + MulAssign,
+{
+    type Output = Self;
+
+    //TODO: Can be optimized with node iterator
+    fn mul(self, rhs: T) -> Self::Output {
+        for row in 0..self.rows_vec.len() {
+            for col in 0..self.cols_vec.len() {
+                if let Some(mut node) = self.get_node(row, col) {
+                    unsafe { node.as_mut().value *= rhs };
+                }
+            }
+        }
+
+        self
+    }
+}
+
+impl<T> Add for SparseMatrix<T>
+where
+    T: Default + Copy + PartialEq + Add<Output = T>,
+{
+    type Output = Self;
+
+    //TODO: Can be done cleaner
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut vec = Vec::new();
+        for row in 0..self.rows_vec.len() {
+            let mut v: Vec<T> = Vec::new();
+            for col in 0..self.cols_vec.len() {
+                let l = if let Some(node) = self.get_node(row, col) {
+                    unsafe { node.as_ref().value }
+                } else {
+                    T::default()
+                };
+
+                let r = if let Some(node) = rhs.get_node(row, col) {
+                    unsafe { node.as_ref().value }
+                } else {
+                    T::default()
+                };
+
+                v.push(l + r);
+            }
+            vec.push(v);
+        }
+
+        SparseMatrix::from_2d_vec(vec)
+    }
+}
+
+//TODO: DESTRUCTOR
