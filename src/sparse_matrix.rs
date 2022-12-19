@@ -40,7 +40,7 @@ where
     }
 }
 
-pub struct SparseMatrix<T: Num> {
+pub struct SparseMatrix<T: NumAssign + Copy> {
     rows_vec: Vec<NonNull<Node<T>>>,
     cols_vec: Vec<NonNull<Node<T>>>,
     size: usize,
@@ -185,11 +185,11 @@ where
         }
 
         let mut update = matrix.cols_vec.clone();
-        for i in 0..matrix.rows() {
-            for j in 0..update.len() {
-                if let Some(node) = matrix.get_node_rows(i, j) {
-                    unsafe { update[j].as_mut().next_col = Some(node) };
-                    update[j] = node;
+        for row in 0..matrix.rows() {
+            for (col, upd) in update.iter_mut().enumerate() {
+                if let Some(node) = matrix.get_node_rows(row, col) {
+                    unsafe { upd.as_mut().next_col = Some(node) };
+                    *upd = node;
                 }
             }
         }
@@ -345,4 +345,23 @@ where
     }
 }
 
-//TODO: DESTRUCTOR
+impl<T> Drop for SparseMatrix<T>
+where
+    T: NumAssign + Copy,
+{
+    fn drop(&mut self) {
+        unsafe {
+            for row in 0..self.rows() {
+                for each in self.node_row_iter(row) {
+                    drop(Box::from_raw(each.as_ptr()))
+                }
+            }
+            for each in self.cols_vec.iter() {
+                drop(Box::from_raw(each.as_ptr()));
+            }
+            for each in self.rows_vec.iter() {
+                drop(Box::from_raw(each.as_ptr()))
+            }
+        }
+    }
+}
