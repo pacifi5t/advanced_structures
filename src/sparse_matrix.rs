@@ -1,7 +1,7 @@
 use crate::MaybeNone;
+use num::traits::NumAssign;
 use num::Num;
 use std::fmt::{Debug, Formatter};
-use std::ops::{Add, Mul, MulAssign};
 use std::ptr::NonNull;
 
 #[derive(Clone)]
@@ -92,9 +92,48 @@ where
     }
 }
 
+struct NodeAxisIter<T>
+where
+    T: Num + Clone,
+{
+    head: MaybeNone<Node<T>>,
+    axis: usize,
+    len: usize,
+}
+
+impl<T> Iterator for NodeAxisIter<T>
+where
+    T: Num + Clone,
+{
+    type Item = NonNull<Node<T>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.len == 0 {
+            return None;
+        }
+
+        self.head.map(|nd| unsafe {
+            let node = nd.as_ref();
+            let next = match self.axis {
+                0 => node.next_col,
+                1 => node.next_row,
+                _ => panic!("axis can be only 0 or 1"),
+            };
+
+            self.len -= 1;
+            self.head = next;
+            nd
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
 impl<T> SparseMatrix<T>
 where
-    T: Num + Copy,
+    T: NumAssign + Copy,
 {
     pub fn new(rows: usize, cols: usize) -> Self {
         Self {
@@ -115,8 +154,16 @@ where
         vec
     }
 
+    pub fn rows(&self) -> usize {
+        self.rows_vec.len()
+    }
+
+    pub fn cols(&self) -> usize {
+        self.cols_vec.len()
+    }
+
     pub fn sparsity(&self) -> f64 {
-        let max_size = (self.rows_vec.len() * self.cols_vec.len()) as f64;
+        let max_size = (self.rows() * self.cols()) as f64;
         (max_size - self.size as f64) / max_size
     }
 
@@ -138,7 +185,7 @@ where
         }
 
         let mut update = matrix.cols_vec.clone();
-        for i in 0..matrix.rows_vec.len() {
+        for i in 0..matrix.rows() {
             for j in 0..update.len() {
                 if let Some(node) = matrix.get_node_rows(i, j) {
                     unsafe { update[j].as_mut().next_col = Some(node) };
@@ -150,8 +197,27 @@ where
         matrix
     }
 
+    pub fn add(&self, other: &Self) -> Self {
+        let mut vec = Vec::new();
+        for row in 0..self.rows() {
+            let mut v: Vec<T> = self.row_iter(row).collect();
+            other.row_iter(row).enumerate().for_each(|(i, e)| v[i] += e);
+            vec.push(v);
+        }
+        SparseMatrix::from_2d_vec(vec)
+    }
+
+    pub fn mul_by(&self, num: T) -> Self {
+        let clone = self.clone();
+        for row in 0..clone.rows() {
+            let iter = clone.node_row_iter(row);
+            iter.for_each(|mut each| unsafe { each.as_mut().value *= num });
+        }
+        clone
+    }
+
     pub fn transposed(&self) -> Self {
-        let range = 0..self.cols_vec.len();
+        let range = 0..self.cols();
         Self::from_2d_vec(range.map(|c| self.col_iter(c).collect()).collect())
     }
 
@@ -171,8 +237,8 @@ where
         AxisIter {
             head: unsafe { self.rows_vec[row].as_ref().next_row },
             axis: 1,
-            len: self.cols_vec.len(),
-            max_len: self.cols_vec.len(),
+            len: self.cols(),
+            max_len: self.cols(),
         }
     }
 
@@ -180,8 +246,24 @@ where
         AxisIter {
             head: unsafe { self.cols_vec[col].as_ref().next_col },
             axis: 0,
-            len: self.rows_vec.len(),
-            max_len: self.rows_vec.len(),
+            len: self.rows(),
+            max_len: self.rows(),
+        }
+    }
+
+    fn node_row_iter(&self, row: usize) -> NodeAxisIter<T> {
+        NodeAxisIter {
+            head: unsafe { self.rows_vec[row].as_ref().next_row },
+            axis: 1,
+            len: self.rows(),
+        }
+    }
+
+    fn node_col_iter(&self, col: usize) -> NodeAxisIter<T> {
+        NodeAxisIter {
+            head: unsafe { self.cols_vec[col].as_ref().next_col },
+            axis: 0,
+            len: self.rows(),
         }
     }
 
@@ -228,7 +310,7 @@ where
 
 impl<T> Default for SparseMatrix<T>
 where
-    T: Num + Copy,
+    T: NumAssign + Copy,
 {
     fn default() -> Self {
         Self::new(2, 2)
@@ -237,87 +319,29 @@ where
 
 impl<T> Debug for SparseMatrix<T>
 where
-    T: Num + Copy + Debug,
+    T: NumAssign + Copy + Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let shape = (self.rows_vec.len(), self.cols_vec.len());
-
         write!(f, "[")?;
         writeln!(f, "{:?},", self.row_iter(0).collect::<Vec<T>>())?;
 
-        for i in 1..(shape.0 - 1) {
+        for i in 1..(self.rows() - 1) {
             writeln!(f, " {:?},", self.row_iter(i).collect::<Vec<T>>())?;
         }
 
-        writeln!(f, " {:?}]", self.row_iter(shape.0 - 1).collect::<Vec<T>>())?;
-        write!(f, "Shape: {}x{}  ", shape.0, shape.1)?;
+        writeln!(f," {:?}]",self.row_iter(self.rows() - 1).collect::<Vec<T>>())?;
+        write!(f, "Shape: {}x{}  ", self.rows(), self.cols())?;
         writeln!(f, "Sparsity: {:.2}", self.sparsity())
     }
 }
 
 impl<T> Clone for SparseMatrix<T>
 where
-    T: Num + Copy,
+    T: NumAssign + Copy,
 {
     fn clone(&self) -> Self {
-        let mut vec = Vec::new();
-        for row in 0..self.rows_vec.len() {
-            vec.push(self.row_iter(row).collect())
-        }
-        SparseMatrix::from_2d_vec(vec)
-    }
-}
-
-impl<T> Mul<T> for SparseMatrix<T>
-where
-    T: Num + Copy + MulAssign,
-{
-    type Output = Self;
-
-    //TODO: Can be optimized with node iterator
-    fn mul(self, rhs: T) -> Self::Output {
-        for row in 0..self.rows_vec.len() {
-            for col in 0..self.cols_vec.len() {
-                if let Some(mut node) = self.get_node(row, col) {
-                    unsafe { node.as_mut().value *= rhs };
-                }
-            }
-        }
-
-        self
-    }
-}
-
-impl<T> Add for SparseMatrix<T>
-where
-    T: Num + Copy,
-{
-    type Output = Self;
-
-    //TODO: Can be done cleaner
-    fn add(self, rhs: Self) -> Self::Output {
-        let mut vec = Vec::new();
-        for row in 0..self.rows_vec.len() {
-            let mut v: Vec<T> = Vec::new();
-            for col in 0..self.cols_vec.len() {
-                let l = if let Some(node) = self.get_node(row, col) {
-                    unsafe { node.as_ref().value }
-                } else {
-                    T::zero()
-                };
-
-                let r = if let Some(node) = rhs.get_node(row, col) {
-                    unsafe { node.as_ref().value }
-                } else {
-                    T::zero()
-                };
-
-                v.push(l + r);
-            }
-            vec.push(v);
-        }
-
-        SparseMatrix::from_2d_vec(vec)
+        let range = 0..self.rows();
+        Self::from_2d_vec(range.map(|r| self.row_iter(r).collect()).collect())
     }
 }
 

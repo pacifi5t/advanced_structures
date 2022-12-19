@@ -4,7 +4,7 @@ fn main() {
     let m = SparseMatrix::from_2d_vec(vec![
         vec![1, 2, 4],
         vec![30],
-        vec![0, 0, 6],
+        vec![0, 0, 0],
         vec![0, 1],
     ]);
 
@@ -15,5 +15,7 @@ fn main() {
         vec![9, 0, 21],
     ]);
 
-    print!("{:?}", m + m2);
+    println!("{:?}", m.mul_by(3));
+    println!("{:?}", m.add(&m2));
+
 }
