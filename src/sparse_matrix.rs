@@ -1,4 +1,5 @@
 use crate::MaybeNone;
+use num::Num;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Mul, MulAssign};
 use std::ptr::NonNull;
@@ -26,11 +27,11 @@ impl<T> Node<T> {
 
 impl<T> Default for Node<T>
 where
-    T: Default,
+    T: Num,
 {
     fn default() -> Self {
         Node {
-            value: T::default(),
+            value: T::zero(),
             row: usize::MAX,
             col: usize::MAX,
             next_row: None,
@@ -39,7 +40,7 @@ where
     }
 }
 
-pub struct SparseMatrix<T: Default> {
+pub struct SparseMatrix<T: Num> {
     rows_vec: Vec<NonNull<Node<T>>>,
     cols_vec: Vec<NonNull<Node<T>>>,
     size: usize,
@@ -47,7 +48,7 @@ pub struct SparseMatrix<T: Default> {
 
 pub struct AxisIter<T>
 where
-    T: Default + Clone,
+    T: Num + Clone,
 {
     head: MaybeNone<Node<T>>,
     axis: usize,
@@ -57,7 +58,7 @@ where
 
 impl<T> Iterator for AxisIter<T>
 where
-    T: Default + Clone,
+    T: Num + Clone,
 {
     type Item = T;
 
@@ -78,12 +79,12 @@ where
                 self.head = next;
                 node.value.clone()
             } else {
-                T::default()
+                T::zero()
             }
         });
 
         self.len -= 1;
-        Some(elem.unwrap_or_default())
+        Some(elem.unwrap_or_else(T::zero))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -93,7 +94,7 @@ where
 
 impl<T> SparseMatrix<T>
 where
-    T: Default + Copy + PartialEq,
+    T: Num + Copy,
 {
     pub fn new(rows: usize, cols: usize) -> Self {
         Self {
@@ -126,7 +127,7 @@ where
         for (i, v) in vec.iter().enumerate() {
             let mut prev = Some(matrix.rows_vec[i]);
 
-            for (j, value) in v.iter().enumerate().filter(|t| *t.1 != T::default()) {
+            for (j, value) in v.iter().enumerate().filter(|t| *t.1 != T::zero()) {
                 let node = Box::new(Node::new(*value, i, j));
                 let current = Some(Box::leak(node).into());
 
@@ -157,7 +158,7 @@ where
         if let Some(node) = self.get_node(row, col) {
             unsafe { node.as_ref().value }
         } else {
-            T::default()
+            T::zero()
         }
     }
 
@@ -222,7 +223,7 @@ where
 
 impl<T> Default for SparseMatrix<T>
 where
-    T: Default + Copy + PartialEq,
+    T: Num + Copy,
 {
     fn default() -> Self {
         Self::new(2, 2)
@@ -231,7 +232,7 @@ where
 
 impl<T> Debug for SparseMatrix<T>
 where
-    T: Default + Copy + PartialEq + Debug,
+    T: Num + Copy + Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let shape = (self.rows_vec.len(), self.cols_vec.len());
@@ -251,7 +252,7 @@ where
 
 impl<T> Clone for SparseMatrix<T>
 where
-    T: Default + Copy + PartialEq,
+    T: Num + Copy,
 {
     fn clone(&self) -> Self {
         let mut vec = Vec::new();
@@ -264,7 +265,7 @@ where
 
 impl<T> Mul<T> for SparseMatrix<T>
 where
-    T: Default + Copy + PartialEq + MulAssign,
+    T: Num + Copy + MulAssign,
 {
     type Output = Self;
 
@@ -284,7 +285,7 @@ where
 
 impl<T> Add for SparseMatrix<T>
 where
-    T: Default + Copy + PartialEq + Add<Output = T>,
+    T: Num + Copy,
 {
     type Output = Self;
 
@@ -297,13 +298,13 @@ where
                 let l = if let Some(node) = self.get_node(row, col) {
                     unsafe { node.as_ref().value }
                 } else {
-                    T::default()
+                    T::zero()
                 };
 
                 let r = if let Some(node) = rhs.get_node(row, col) {
                     unsafe { node.as_ref().value }
                 } else {
-                    T::default()
+                    T::zero()
                 };
 
                 v.push(l + r);
