@@ -150,6 +150,11 @@ where
         matrix
     }
 
+    pub fn transposed(&self) -> Self {
+        let range = 0..self.cols_vec.len();
+        Self::from_2d_vec(range.map(|c| self.col_iter(c).collect()).collect())
+    }
+
     pub fn set(&self, value: T, row: usize, col: usize) {
         todo!()
     }
