@@ -187,7 +187,7 @@ where
         let mut update = matrix.cols_vec.clone();
         for row in 0..matrix.rows() {
             for (col, upd) in update.iter_mut().enumerate() {
-                if let Some(node) = matrix.get_node_rows(row, col) {
+                if let Some(node) = matrix.get_node_row(row, col) {
                     unsafe { upd.as_mut().next_col = Some(node) };
                     *upd = node;
                 }
@@ -221,8 +221,61 @@ where
         Self::from_2d_vec(range.map(|c| self.col_iter(c).collect()).collect())
     }
 
-    pub fn set(&self, value: T, row: usize, col: usize) {
-        todo!()
+    pub fn set(&mut self, value: T, row: usize, col: usize) {
+        unsafe {
+            let mut prev_col = self.get_prev_node_col(row, col);
+            let mut prev_row = self.get_prev_node_row(row, col);
+
+            let value_is_zero = value == T::zero();
+            let node_exists = if let Some(node) = prev_col.as_ref().next_col {
+                node.as_ref().row == row
+            } else {
+                false
+            };
+
+            if node_exists {
+                if value_is_zero {
+                    Self::remove_node(prev_col, prev_row);
+                } else {
+                    prev_col.as_ref().next_col.unwrap().as_mut().value = value;
+                }
+            } else {
+                let node = Box::new(Node::new(value, row, col));
+                let ptr = Some(Box::leak(node).into());
+                prev_row.as_mut().next_row = ptr;
+                prev_col.as_mut().next_col = ptr;
+            }
+        }
+    }
+
+    unsafe fn remove_node(mut prev_col: NonNull<Node<T>>, mut prev_row: NonNull<Node<T>>) {
+        let _ = Box::from_raw(prev_row.as_mut().next_row.unwrap().as_ptr());
+        prev_row.as_mut().next_row = prev_row.as_mut().next_row.unwrap().as_mut().next_row;
+        prev_col.as_mut().next_col = prev_col.as_mut().next_col.unwrap().as_mut().next_col;
+    }
+
+    fn get_prev_node_col(&self, row: usize, col: usize) -> NonNull<Node<T>> {
+        let mut prev = None;
+        for each in self.node_col_iter(col) {
+            if unsafe { each.as_ref().row } < row {
+                prev = Some(each);
+            } else {
+                break;
+            }
+        }
+        prev.unwrap_or(self.cols_vec[col])
+    }
+
+    fn get_prev_node_row(&self, row: usize, col: usize) -> NonNull<Node<T>> {
+        let mut prev = None;
+        for each in self.node_row_iter(row) {
+            if unsafe { each.as_ref().col } < col {
+                prev = Some(each);
+            } else {
+                break;
+            }
+        }
+        prev.unwrap_or(self.rows_vec[row])
     }
 
     pub fn get(&self, row: usize, col: usize) -> T {
@@ -269,20 +322,15 @@ where
 
     fn get_node(&self, row: usize, col: usize) -> MaybeNone<Node<T>> {
         if row > col {
-            self.get_node_rows(row, col)
+            self.get_node_row(row, col)
         } else {
-            self.get_node_cols(row, col)
+            self.get_node_col(row, col)
         }
     }
 
-    fn get_node_rows(&self, row: usize, col: usize) -> MaybeNone<Node<T>> {
+    fn get_node_row(&self, row: usize, col: usize) -> MaybeNone<Node<T>> {
         unsafe {
-            let mut node = self.rows_vec[row].as_ref().next_row;
-
-            while node?.as_ref().col < col {
-                node = node?.as_ref().next_row
-            }
-
+            let node = self.get_prev_node_row(row, col).as_ref().next_row;
             if node?.as_ref().col == col {
                 node
             } else {
@@ -291,14 +339,9 @@ where
         }
     }
 
-    fn get_node_cols(&self, row: usize, col: usize) -> MaybeNone<Node<T>> {
+    fn get_node_col(&self, row: usize, col: usize) -> MaybeNone<Node<T>> {
         unsafe {
-            let mut node = self.cols_vec[col].as_ref().next_col;
-
-            while node?.as_ref().row < row {
-                node = node?.as_ref().next_col
-            }
-
+            let node = self.get_prev_node_col(row, col).as_ref().next_col;
             if node?.as_ref().row == row {
                 node
             } else {
@@ -329,7 +372,11 @@ where
             writeln!(f, " {:?},", self.row_iter(i).collect::<Vec<T>>())?;
         }
 
-        writeln!(f," {:?}]",self.row_iter(self.rows() - 1).collect::<Vec<T>>())?;
+        writeln!(
+            f,
+            " {:?}]",
+            self.row_iter(self.rows() - 1).collect::<Vec<T>>()
+        )?;
         write!(f, "Shape: {}x{}  ", self.rows(), self.cols())?;
         writeln!(f, "Sparsity: {:.2}", self.sparsity())
     }
