@@ -236,22 +236,25 @@ where
             if node_exists {
                 if value_is_zero {
                     Self::remove_node(prev_col, prev_row);
+                    self.size -= 1;
                 } else {
                     prev_col.as_ref().next_col.unwrap().as_mut().value = value;
+                    self.size += 1;
                 }
             } else {
                 let node = Box::new(Node::new(value, row, col));
                 let ptr = Some(Box::leak(node).into());
                 prev_row.as_mut().next_row = ptr;
                 prev_col.as_mut().next_col = ptr;
+                self.size += 1;
             }
         }
     }
 
     unsafe fn remove_node(mut prev_col: NonNull<Node<T>>, mut prev_row: NonNull<Node<T>>) {
-        let _ = Box::from_raw(prev_row.as_mut().next_row.unwrap().as_ptr());
-        prev_row.as_mut().next_row = prev_row.as_mut().next_row.unwrap().as_mut().next_row;
-        prev_col.as_mut().next_col = prev_col.as_mut().next_col.unwrap().as_mut().next_col;
+        let node = Box::from_raw(prev_row.as_mut().next_row.unwrap().as_ptr());
+        prev_row.as_mut().next_row = node.next_row;
+        prev_col.as_mut().next_col = node.next_col;
     }
 
     fn get_prev_node_col(&self, row: usize, col: usize) -> NonNull<Node<T>> {

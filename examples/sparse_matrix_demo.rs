@@ -109,14 +109,15 @@ fn add(copies: &mut Vec<SparseMatrix<Item>>, args: Vec<&str>) -> Result<(), Box<
 fn set(m: &mut SparseMatrix<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
     check_args(4, args.len(), None)?;
 
-    let row = args[1].parse()?;
-    let col = args[2].parse()?;
+    let row = args[2].parse()?;
+    let col = args[3].parse()?;
 
     if row >= m.rows() || col >= m.cols() {
         return Err("incorrect parameter".into());
     }
 
-    m.set(args[3].parse()?, row, col);
+    m.set(args[1].parse()?, row, col);
+    info(m);
     Ok(())
 }
 
