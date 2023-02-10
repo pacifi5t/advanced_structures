@@ -94,8 +94,8 @@ where
                 let level = self.random_level();
 
                 if level > self.cur_level {
-                    for i in (self.cur_level + 1)..=level {
-                        update[i] = Some(self.head)
+                    for each in update.iter_mut().take(level + 1).skip(self.cur_level + 1) {
+                        *each = Some(self.head)
                     }
                     self.cur_level = level
                 }
@@ -103,8 +103,8 @@ where
                 let node = SkipNode::new(key, value, level);
                 let mut node_ptr = NonNull::from(Box::leak(Box::new(node)));
 
-                for i in 0..=level {
-                    let each = update[i].unwrap().as_mut();
+                for (i, each) in update.iter().enumerate().take(level + 1) {
+                    let each = each.unwrap().as_mut();
                     node_ptr.as_mut().next[i] = each.next[i];
                     each.next[i] = Some(node_ptr);
                 }
@@ -141,12 +141,12 @@ where
                 return None;
             }
 
-            for i in 0..=self.cur_level {
-                let update_each = update[i].unwrap().as_mut();
-                if update_each.next[i] != current {
+            for (i, each) in update.iter().enumerate().take(self.cur_level + 1) {
+                let each = each.unwrap().as_mut();
+                if each.next[i] != current {
                     break;
                 }
-                update_each.next[i] = current.unwrap().as_ref().next[i]
+                each.next[i] = current.unwrap().as_ref().next[i]
             }
 
             while self.cur_level > 0 && self.head.as_ref().next[self.cur_level].is_none() {
@@ -266,7 +266,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for lvl in 0..self.cur_level + 1 {
-            write!(f, "Lv{} - ", lvl)?;
+            write!(f, "Lv{lvl} - ")?;
             let mut node = unsafe { (self.head.as_ref()).next[lvl] };
             while node.is_some() {
                 let node_ref = unsafe { node.unwrap().as_ref() };

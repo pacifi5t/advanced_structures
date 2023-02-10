@@ -17,7 +17,7 @@ fn main() {
         println!();
 
         match parse_args(String::from(buf.trim()), &mut copies) {
-            Err(err) => println!("Error: {}", err),
+            Err(err) => println!("Error: {err}"),
             Ok(exit_flag) => {
                 if exit_flag {
                     break;
@@ -185,7 +185,7 @@ fn check_args(expected: usize, actual: usize, msg: Option<&str>) -> Result<(), &
 }
 
 fn info(m: &SparseMatrix<Item>) {
-    print!("{:?}", m);
+    print!("{m:?}");
 }
 
 fn show(copies: &mut Vec<SparseMatrix<Item>>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {

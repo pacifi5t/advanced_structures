@@ -63,11 +63,11 @@ fn save_measures(dir: String, filename: String, measures: Vec<Duration>) -> io::
     let dir_path = Path::new(&dir);
     dir_path.try_exists()?;
 
-    let mut file = File::create(dir_path.join(&filename))?;
+    let mut file = File::create(dir_path.join(filename))?;
     let mut buf = String::new();
     for each in measures {
         let m = each.as_nanos() as f64 / 1000.0;
-        buf += format!("{}\n", m).as_str();
+        buf += format!("{m}\n").as_str();
     }
 
     file.write_all(buf.as_bytes())
@@ -153,7 +153,7 @@ fn print_stats(caption: &str, measures: &Vec<Duration>, sl: &SkipList<Item>) {
     let max = measures.iter().max().unwrap();
     let ptrs = sl.node_ptrs() as f64 / (sl.cur_level() + 1) as f64;
 
-    println!("{}", caption);
-    println!("Min: {:?}\nMax: {:?}\nAvg: {:?}", min, max, avg);
-    println!("Avg pointers per level: {:.2}\n", ptrs);
+    println!("{caption}");
+    println!("Min: {min:?}\nMax: {max:?}\nAvg: {avg:?}");
+    println!("Avg pointers per level: {ptrs:.2}\n");
 }

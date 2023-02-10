@@ -53,7 +53,7 @@ fn main() -> std::io::Result<()> {
     let mut buf = String::new();
     for each in measures {
         let m = each.as_nanos() as f64 / 1000.0;
-        buf += format!("{}\n", m).as_str();
+        buf += format!("{m}\n").as_str();
     }
 
     file.write_all(buf.as_bytes())
@@ -97,5 +97,5 @@ fn print_stats(measures: &Vec<Duration>) {
     let avg = measures.iter().sum::<Duration>() / measures.len() as u32;
     let max = measures.iter().max().unwrap();
 
-    println!("Min: {:?}\nMax: {:?}\nAvg: {:?}", min, max, avg);
+    println!("Min: {min:?}\nMax: {max:?}\nAvg: {avg:?}");
 }

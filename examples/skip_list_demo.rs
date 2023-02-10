@@ -18,7 +18,7 @@ fn main() {
         println!();
 
         match parse_args(String::from(buf.trim()), &mut copies) {
-            Err(err) => println!("Error: {}", err),
+            Err(err) => println!("Error: {err}"),
             Ok(exit_flag) => {
                 if exit_flag {
                     break;
@@ -134,7 +134,7 @@ fn find(sl: &SkipList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> {
     match sl.find(args[1].parse()?) {
         None => Err("key not found".into()),
         Some(found) => {
-            println!("Found {}", found);
+            println!("Found {found}");
             Ok(())
         }
     }
@@ -149,7 +149,7 @@ fn check_args(expected: usize, actual: usize, msg: Option<&str>) -> Result<(), &
 }
 
 fn info(sl: &SkipList<Item>) {
-    print!("{:?}", sl);
+    print!("{sl:?}");
     println!(
         "Length: {}  Current level: {}  Max level: {}  Pointers: {}",
         sl.len(),

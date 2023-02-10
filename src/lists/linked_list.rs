@@ -351,7 +351,7 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "[")?;
         for each in self.iter() {
-            write!(f, "{}, ", each)?;
+            write!(f, "{each}, ")?;
         }
 
         if !self.is_empty() {

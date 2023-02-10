@@ -18,7 +18,7 @@ fn main() {
         println!();
 
         match parse_args(String::from(buf.trim()), &mut copies) {
-            Err(err) => println!("Error: {}", err),
+            Err(err) => println!("Error: {err}"),
             Ok(exit_flag) => {
                 if exit_flag {
                     break;
@@ -155,7 +155,7 @@ fn pop(ml: &mut MultiList<Item>, args: Vec<&str>) -> Result<(), Box<dyn Error>> 
     Ok(())
 }
 
-fn parse_index(args: &Vec<&str>, i: usize) -> Result<Index, Box<dyn Error>> {
+fn parse_index(args: &[&str], i: usize) -> Result<Index, Box<dyn Error>> {
     let index_str: Vec<&str> = args[i].split(',').collect();
     check_args(2, index_str.len(), Some("expected 2 args for index"))?;
     Ok(Index::new(index_str[0].parse()?, index_str[1].parse()?))
@@ -170,7 +170,7 @@ fn check_args(expected: usize, actual: usize, msg: Option<&str>) -> Result<(), &
 }
 
 fn info(ml: &MultiList<Item>) {
-    print!("{}", ml);
+    print!("{ml}");
     println!("Size: {}  Levels: {}", ml.size(), ml.levels());
 }
 

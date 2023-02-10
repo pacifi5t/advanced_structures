@@ -271,7 +271,7 @@ where
             let vec = self.get_children_of_level(level);
             let mut string = String::new();
             for (i, each) in vec.iter().map(|pair| (pair.0, pair.1.borrow())) {
-                string.push_str(format!("{}:{}  ", i, each).as_str())
+                string.push_str(format!("{i}:{each}  ").as_str())
             }
 
             writeln!(f, "Lv{} - {}", level + 1, string.trim())?
